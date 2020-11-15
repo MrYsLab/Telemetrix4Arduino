@@ -61,6 +61,8 @@ extern void stop_all_reports();
 
 extern void set_analog_scanning_interval();
 
+extern void enable_all_reports();
+
 // uncomment out the next line to create a 2nd i2c port
 //#define SECOND_I2C_PORT
 
@@ -100,6 +102,7 @@ TwoWire Wire2(SECOND_I2C_PORT_SDA, SECOND_I2C_PORT_SCL);
 #define DHT_NEW 14
 #define STOP_ALL_REPORTS 15
 #define SET_ANALOG_SCANNING_INTERVAL 16
+#define ENABLE_ALL_REPORTS 17
 
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
@@ -116,7 +119,7 @@ struct command_descriptor
 
 // If you add new commands, make sure to extend the siz of this
 // array.
-command_descriptor command_table[17] =
+command_descriptor command_table[18] =
     {
         {&serial_loopback},
         {&set_pin_mode},
@@ -134,7 +137,8 @@ command_descriptor command_table[17] =
         {&sonar_new},
         {dht_new},
         {stop_all_reports},
-        {set_analog_scanning_interval}
+        {set_analog_scanning_interval},
+        {enable_all_reports}
     };
 
 // Input pin reporting control sub commands (modify_reporting)
@@ -763,6 +767,12 @@ void stop_all_reports(){
     stop_reports = true;
     delay(20);
     Serial.flush();
+}
+
+void enable_all_reports(){
+    Serial.flush();
+    stop_reports = false;
+    delay(20);
 }
 
 void get_next_command()
