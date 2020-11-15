@@ -138,8 +138,7 @@ command_descriptor command_table[18] =
         {dht_new},
         {stop_all_reports},
         {set_analog_scanning_interval},
-        {enable_all_reports}
-    };
+        {enable_all_reports}};
 
 // Input pin reporting control sub commands (modify_reporting)
 #define REPORTING_DISABLE_ALL 0
@@ -182,8 +181,8 @@ command_descriptor command_table[18] =
 #define DHT_READ_ERROR 1
 
 // firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 0
-#define FIRMWARE_MINOR 6
+#define FIRMWARE_MAJOR 1
+#define FIRMWARE_MINOR 3
 
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
@@ -367,7 +366,8 @@ void set_pin_mode()
     }
 }
 
-void set_analog_scanning_interval(){
+void set_analog_scanning_interval()
+{
     analog_sampling_interval = command_buffer[0];
 }
 
@@ -762,14 +762,15 @@ void dht_new()
     }
 }
 
-
-void stop_all_reports(){
+void stop_all_reports()
+{
     stop_reports = true;
     delay(20);
     Serial.flush();
 }
 
-void enable_all_reports(){
+void enable_all_reports()
+{
     Serial.flush();
     stop_reports = false;
     delay(20);
@@ -887,29 +888,42 @@ void scan_analog_inputs()
                     // adjust pin number for the actual read
                     adjusted_pin_number = (uint8_t)(analog_read_pins[i]);
                     value = analogRead(adjusted_pin_number);
-
-                    if (value != the_analog_pins[i].last_value)
+                    if (the_analog_pins[i].differential)
                     {
-                        // check to see if the trigger_threshold was achieved
-                        differential = abs(value - the_analog_pins[i].last_value);
-                        if(differential >= the_analog_pins[i].differential){
-                             //trigger value achieved, send out the report
-                            the_analog_pins[i].last_value = value;
-                            // input_message[1] = the_analog_pins[i].pin_number;
-                            report_message[2] = (byte)i;
-                            report_message[3] = highByte(value); // get high order byte
-                            report_message[4] = lowByte(value);
-                            Serial.write(report_message, 5);
-                            delay(1);
 
+                        if (value != the_analog_pins[i].last_value)
+                        {
+                            // check to see if the trigger_threshold was achieved
+                            differential = abs(value - the_analog_pins[i].last_value);
+                            if (differential >= the_analog_pins[i].differential)
+                            {
+                                //trigger value achieved, send out the report
+                                the_analog_pins[i].last_value = value;
+                                // input_message[1] = the_analog_pins[i].pin_number;
+                                report_message[2] = (byte)i;
+                                report_message[3] = highByte(value); // get high order byte
+                                report_message[4] = lowByte(value);
+                                Serial.write(report_message, 5);
+                                delay(1);
+                            }
                         }
-
+                    }
+                    else
+                    {
+                        the_analog_pins[i].last_value = value;
+                        // input_message[1] = the_analog_pins[i].pin_number;
+                        report_message[2] = (byte)i;
+                        report_message[3] = highByte(value); // get high order byte
+                        report_message[4] = lowByte(value);
+                        Serial.write(report_message, 5);
+                        delay(1);
                     }
                 }
             }
         }
     }
 }
+
 
 void scan_sonars()
 {
@@ -932,7 +946,7 @@ void scan_sonars()
                 // byte 3 = distance high order byte
                 // byte 4 = distance low order byte
                 byte report_message[5] = {4, SONAR_DISTANCE, sonars[last_sonar_visited].trigger_pin,
-                                            (byte)(distance >> 8), (byte)(distance & 0xff)};
+                                          (byte)(distance >> 8), (byte)(distance & 0xff)};
                 Serial.write(report_message, 5);
             }
             last_sonar_visited++;
@@ -1033,6 +1047,7 @@ void setup()
         the_analog_pins[i].pin_mode = AT_MODE_NOT_SET;
         the_analog_pins[i].reporting_enabled = false;
         the_analog_pins[i].last_value = 0;
+        the_analog_pins[i].differential = 0;
     }
     // initialize the servo allocation map table
 
@@ -1044,7 +1059,8 @@ void loop()
     // keep processing incoming commands
     get_next_command();
 
-    if(! stop_reports){ // stop reporting
+    if (!stop_reports)
+    { // stop reporting
         scan_digital_inputs();
         scan_analog_inputs();
         scan_sonars();
