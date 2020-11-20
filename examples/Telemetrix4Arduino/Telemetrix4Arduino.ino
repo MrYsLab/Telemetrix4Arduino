@@ -25,7 +25,6 @@
 // If you add a new command, you must add the command handler
 // here as well.
 
-// Phase 1 commands
 extern void serial_loopback();
 
 extern void set_pin_mode();
@@ -46,7 +45,6 @@ extern void servo_write();
 
 extern void servo_detach();
 
-// Phase 3 commands
 extern void i2c_begin();
 
 extern void i2c_read();
@@ -64,7 +62,7 @@ extern void set_analog_scanning_interval();
 extern void enable_all_reports();
 
 // uncomment out the next line to create a 2nd i2c port
-//#define SECOND_I2C_PORT
+// #define SECOND_I2C_PORT
 
 #ifdef SECOND_I2C_PORT
 // Change the pins to match SDA and SCL for your board
@@ -72,8 +70,11 @@ extern void enable_all_reports();
 #define SECOND_I2C_PORT_SCL PB10
 
 TwoWire Wire2(SECOND_I2C_PORT_SDA, SECOND_I2C_PORT_SCL);
-
 #endif
+
+// a pointer to an active TwoWire object
+TwoWire *current_i2c_port;
+
 
 // This value must be the same as specified when instantiating the
 // telemetrix client. The client defaults to a value of 1.
@@ -558,118 +559,67 @@ void i2c_read()
     byte address = command_buffer[0];
     byte the_register = command_buffer[1];
 
+    // set the current i2c port if this is for the primary i2c
+    if (command_buffer[4] == 0)
+    {
+        current_i2c_port = &Wire;
+    }
+
 #ifdef SECOND_I2C_PORT
     // this is for port 2
-    if (command_buffer[4])
+    if (command_buffer[4] == 1)
     {
-        Wire2.beginTransmission(address);
-        Wire2.write((byte)the_register);
-        Wire2.endTransmission(command_buffer[3]);      // default = true
-        Wire2.requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
-
-        // check to be sure correct number of bytes were returned by slave
-        if (command_buffer[2] < Wire2.available())
-        {
-            byte report_message[4] = {3, I2C_TOO_FEW_BYTES_RCVD, 1, address};
-            Serial.write(report_message, 4);
-            return;
-        }
-        else if (command_buffer[2] > Wire2.available())
-        {
-            byte report_message[4] = {3, I2C_TOO_MANY_BYTES_RCVD, 1, address};
-            Serial.write(report_message, 4);
-            return;
-        }
-        Wire2.beginTransmission(address);
-        Wire2.write((byte)the_register);
-        Wire2.endTransmission(command_buffer[3]);      // default = true
-        Wire2.requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
-
-        // packet length
-        i2c_report_message[0] = command_buffer[2] + 5;
-
-        // report type
-        i2c_report_message[1] = I2C_READ_REPORT;
-
-        // i2c_port 1 = port 2
-        i2c_report_message[2] = 1;
-
-        // number of bytes read
-        i2c_report_message[3] = command_buffer[2]; // number of bytes
-
-        // device address
-        i2c_report_message[4] = address;
-
-        // device register
-        i2c_report_message[5] = the_register;
-
-        // append the data that was read
-        for (message_size = 0; message_size < command_buffer[2] && Wire2.available(); message_size++)
-        {
-            i2c_report_message[6 + message_size] = Wire2.read();
-        }
-        // send slave address, register and received bytes
-
-        for (int i = 0; i < message_size + 6; i++)
-        {
-            Serial.write(i2c_report_message[i]);
-        }
+        current_i2c_port = &Wire2;
     }
 #endif
-    // is this for i2c port 0 - default port
-    if (not command_buffer[4])
+
+    current_i2c_port->beginTransmission(address);
+    current_i2c_port->write((byte)the_register);
+    current_i2c_port->endTransmission(command_buffer[3]);      // default = true
+    current_i2c_port->requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
+
+    // check to be sure correct number of bytes were returned by slave
+    if (command_buffer[2] < current_i2c_port->available())
     {
-        Wire.beginTransmission(address);
-        Wire.write((byte)the_register);
-        Wire.endTransmission(command_buffer[3]);      // default = true
-        Wire.requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
+        byte report_message[4] = {3, I2C_TOO_FEW_BYTES_RCVD, 1, address};
+        Serial.write(report_message, 4);
+        return;
+    }
+    else if (command_buffer[2] > current_i2c_port->available())
+    {
+        byte report_message[4] = {3, I2C_TOO_MANY_BYTES_RCVD, 1, address};
+        Serial.write(report_message, 4);
+        return;
+    }
 
-        // check to be sure correct number of bytes were returned by slave
-        if (command_buffer[2] < Wire.available())
-        {
-            byte report_message[4] = {3, I2C_TOO_FEW_BYTES_RCVD, 0, address};
-            Serial.write(report_message, 4);
-            return;
-        }
-        else if (command_buffer[2] > Wire.available())
-        {
-            byte report_message[4] = {3, I2C_TOO_MANY_BYTES_RCVD, 0, address};
-            Serial.write(report_message, 4);
-            return;
-        }
-        Wire.beginTransmission(address);
-        Wire.write((byte)the_register);
-        Wire.endTransmission(command_buffer[3]);      // default = true
-        Wire.requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
+    // packet length
+    i2c_report_message[0] = command_buffer[2] + 5;
 
-        // packet length
-        i2c_report_message[0] = command_buffer[2] + 5;
+    // report type
+    i2c_report_message[1] = I2C_READ_REPORT;
 
-        // report type
-        i2c_report_message[1] = I2C_READ_REPORT;
+    // i2c_port
+    i2c_report_message[2] = command_buffer[4];
 
-        // i2c_port 0 = default
-        i2c_report_message[2] = 0;
+    // number of bytes read
+    i2c_report_message[3] = command_buffer[2]; // number of bytes
 
-        // number of bytes read
-        i2c_report_message[3] = command_buffer[2]; // number of bytes
+    // device address
+    i2c_report_message[4] = address;
 
-        // device address
-        i2c_report_message[4] = address;
+    // device register
+    i2c_report_message[5] = the_register;
 
-        // device register
-        i2c_report_message[5] = the_register;
+    // append the data that was read
+    for (message_size = 0; message_size < command_buffer[2] && current_i2c_port->available(); message_size++)
+    {
+        i2c_report_message[6 + message_size] = current_i2c_port->read();
+    }
+    // send slave address, register and received bytes
 
-        // append the data that was read
-        for (message_size = 0; message_size < command_buffer[2] && Wire.available(); message_size++)
-        {
-            i2c_report_message[6 + message_size] = Wire.read();
-        }
-        // send slave address, register and received bytes
-        for (int i = 0; i < message_size + 6; i++)
-        {
-            Serial.write(i2c_report_message[i]);
-        }
+    for (int i = 0; i < message_size + 6; i++)
+    {
+        Serial.write(i2c_report_message[i]);
     }
 }
 
@@ -680,33 +630,29 @@ void i2c_write()
     // command_buffer[2] is the i2c port
     // additional bytes to write= command_buffer[3..];
 
-#ifdef SECOND_I2C_PORT
-    // i2c port 2
-    if (command_buffer[2])
+    // set the current i2c port if this is for the primary i2c
+    if (command_buffer[2] == 0)
     {
-        Wire2.beginTransmission(command_buffer[1]);
+        current_i2c_port = &Wire;
+    }
 
-        // write the data to the device
-        for (int i = 0; i < command_buffer[0]; i++)
-        {
-            Wire2.write(command_buffer[i + 3]);
-        }
-        Wire2.endTransmission();
-        delayMicroseconds(70);
+#ifdef SECOND_I2C_PORT
+    // this is for port 2
+    if (command_buffer[2] == 1)
+    {
+        current_i2c_port = &Wire2;
     }
 #endif
-    if (not command_buffer[2])
-    {
-        Wire.beginTransmission(command_buffer[1]);
 
-        // write the data to the device
-        for (int i = 0; i < command_buffer[0]; i++)
-        {
-            Wire.write(command_buffer[i + 3]);
-        }
-        Wire.endTransmission();
-        delayMicroseconds(70);
+    current_i2c_port->beginTransmission(command_buffer[1]);
+
+    // write the data to the device
+    for (int i = 0; i < command_buffer[0]; i++)
+    {
+        current_i2c_port->write(command_buffer[i + 3]);
     }
+    current_i2c_port->endTransmission();
+    delayMicroseconds(70);
 }
 
 /***********************************
@@ -888,28 +834,10 @@ void scan_analog_inputs()
                     // adjust pin number for the actual read
                     adjusted_pin_number = (uint8_t)(analog_read_pins[i]);
                     value = analogRead(adjusted_pin_number);
-                    if (the_analog_pins[i].differential)
+                    differential = abs(value - the_analog_pins[i].last_value);
+                    if (differential >= the_analog_pins[i].differential)
                     {
-
-                        if (value != the_analog_pins[i].last_value)
-                        {
-                            // check to see if the trigger_threshold was achieved
-                            differential = abs(value - the_analog_pins[i].last_value);
-                            if (differential >= the_analog_pins[i].differential)
-                            {
-                                //trigger value achieved, send out the report
-                                the_analog_pins[i].last_value = value;
-                                // input_message[1] = the_analog_pins[i].pin_number;
-                                report_message[2] = (byte)i;
-                                report_message[3] = highByte(value); // get high order byte
-                                report_message[4] = lowByte(value);
-                                Serial.write(report_message, 5);
-                                delay(1);
-                            }
-                        }
-                    }
-                    else
-                    {
+                        //trigger value achieved, send out the report
                         the_analog_pins[i].last_value = value;
                         // input_message[1] = the_analog_pins[i].pin_number;
                         report_message[2] = (byte)i;
@@ -923,7 +851,6 @@ void scan_analog_inputs()
         }
     }
 }
-
 
 void scan_sonars()
 {
