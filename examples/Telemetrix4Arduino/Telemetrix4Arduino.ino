@@ -383,11 +383,15 @@ void digital_write()
 
 void analog_write()
 {
-    byte pin;
-    byte value;
-    pin = command_buffer[0];
-    value = command_buffer[1];
-    analogWrite(pin, value);
+  // command_buffer[0] = PIN, command_buffer[1] = value_msb,
+  // command_buffer[2] = value_lsb
+  byte pin; // command_buffer[0]
+  u_int value;
+
+  pin = command_buffer[0];
+
+  value = (command_buffer[1] << 8) + command_buffer[2];
+  analogWrite(pin, value);
 }
 
 void modify_reporting()
