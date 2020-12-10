@@ -61,6 +61,8 @@ extern void set_analog_scanning_interval();
 
 extern void enable_all_reports();
 
+extern void reset_data();
+
 // uncomment out the next line to create a 2nd i2c port
 // #define SECOND_I2C_PORT
 
@@ -104,6 +106,7 @@ TwoWire *current_i2c_port;
 #define STOP_ALL_REPORTS 15
 #define SET_ANALOG_SCANNING_INTERVAL 16
 #define ENABLE_ALL_REPORTS 17
+#define RESET 18
 
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
@@ -120,7 +123,7 @@ struct command_descriptor
 
 // If you add new commands, make sure to extend the siz of this
 // array.
-command_descriptor command_table[18] =
+command_descriptor command_table[19] =
     {
         {&serial_loopback},
         {&set_pin_mode},
@@ -139,7 +142,8 @@ command_descriptor command_table[18] =
         {dht_new},
         {stop_all_reports},
         {set_analog_scanning_interval},
-        {enable_all_reports}};
+        {enable_all_reports},
+        {reset_data}};
 
 // Input pin reporting control sub commands (modify_reporting)
 #define REPORTING_DISABLE_ALL 0
@@ -183,7 +187,7 @@ command_descriptor command_table[18] =
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 1
-#define FIRMWARE_MINOR 6
+#define FIRMWARE_MINOR 7
 
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
@@ -386,7 +390,7 @@ void analog_write()
   // command_buffer[0] = PIN, command_buffer[1] = value_msb,
   // command_buffer[2] = value_lsb
   byte pin; // command_buffer[0]
-  u_int value;
+  unsigned int value;
 
   pin = command_buffer[0];
 
@@ -959,10 +963,43 @@ void scan_dhts()
     }
 }
 
-void setup()
-{
-    // create an array of pin_descriptors for 100 pins
-    // establish the digital pin array
+void reset_data(){
+    // reset the data structures
+
+    // fist stop all reporting
+    stop_all_reports();
+
+    current_millis = 0;  // for analog input loop
+    previous_millis = 0; // for analog input loop
+    analog_sampling_interval = 19;
+
+    // detach any attached servos
+    for (int i = 0; i < MAX_SERVOS; i++)
+    {
+        if (servos[i].attached() == true)
+        {
+            servos[i].detach();
+        }
+    }
+
+    sonar_current_millis = 0;  // for analog input loop
+    sonar_previous_millis = 0; // for analog input loop
+    sonar_scan_interval = 33;  // Milliseconds between sensor pings
+
+    dht_index = 0; // index into dht struct
+
+    dht_current_millis = 0;      // for analog input loop
+    dht_previous_millis = 0;     // for analog input loop
+    dht_scan_interval = 2000;    // scan dht's every 2 seconds
+
+    init_pin_structures();
+
+    memset(sonars, 0, sizeof(sonars));
+    memset(dhts, 0, sizeof(dhts));
+    enable_all_reports();
+}
+
+void init_pin_structures(){
     for (byte i = 0; i < MAX_DIGITAL_PINS_SUPPORTED; i++)
     {
         the_digital_pins[i].pin_number = i;
@@ -980,7 +1017,12 @@ void setup()
         the_analog_pins[i].last_value = 0;
         the_analog_pins[i].differential = 0;
     }
-    // initialize the servo allocation map table
+}
+
+void setup()
+{
+    init_pin_structures();
+
 
     Serial.begin(115200);
 }
