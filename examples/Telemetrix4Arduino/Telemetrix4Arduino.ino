@@ -63,7 +63,7 @@ extern void enable_all_reports();
 
 extern void reset_data();
 
-extern init_pin_structures();
+extern void init_pin_structures();
 
 
 // uncomment out the next line to create a 2nd i2c port
@@ -190,7 +190,7 @@ command_descriptor command_table[19] =
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 1
-#define FIRMWARE_MINOR 8
+#define FIRMWARE_MINOR 9
 
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
