@@ -190,7 +190,7 @@ command_descriptor command_table[19] =
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 1
-#define FIRMWARE_MINOR 9
+#define FIRMWARE_MINOR 10
 
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
@@ -507,7 +507,6 @@ void servo_write()
 {
     byte pin = command_buffer[0];
     int angle = command_buffer[1];
-    servos[0].write(angle);
     // find the servo object for the pin
     for (int i = 0; i < MAX_SERVOS; i++)
     {
