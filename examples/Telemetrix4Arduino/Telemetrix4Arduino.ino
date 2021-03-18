@@ -984,11 +984,13 @@ void reset_data(){
         }
     }
 
+    sonars_index = 0; // reset the index into the sonars array
+
     sonar_current_millis = 0;  // for analog input loop
     sonar_previous_millis = 0; // for analog input loop
     sonar_scan_interval = 33;  // Milliseconds between sensor pings
 
-    dht_index = 0; // index into dht struct
+    dht_index = 0; // index into dht array
 
     dht_current_millis = 0;      // for analog input loop
     dht_previous_millis = 0;     // for analog input loop
