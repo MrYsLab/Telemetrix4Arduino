@@ -1,9 +1,3 @@
-#include <Arduino.h>
-#include "Telemetrix4Arduino.h"
-#include <Servo.h>
-#include <Ultrasonic.h>
-#include <Wire.h>
-#include <DHTStable.h>
 /*
   Copyright (c) 2020-2021 Alan Yorinks All rights reserved.
 
@@ -21,6 +15,13 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+
+#include <Arduino.h>
+#include "Telemetrix4Arduino.h"
+#include <Servo.h>
+#include <Ultrasonic.h>
+#include <Wire.h>
+#include <DHTStable.h>
 // We define these here to provide a forward reference.
 // If you add a new command, you must add the command handler
 // here as well.
@@ -190,8 +191,9 @@ command_descriptor command_table[19] =
 #define DHT_READ_ERROR 1
 
 // firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 1
-#define FIRMWARE_MINOR 13
+#define FIRMWARE_MAJOR 2
+#define FIRMWARE_MINOR 0
+#define FIRMWARE_PATCH 0
 
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
@@ -284,7 +286,6 @@ byte pin_to_servo_index_map[MAX_SERVOS];
 struct Sonar
 {
   uint8_t trigger_pin;
-  int differential;       // difference between current and last value needed
   unsigned int last_value;
   Ultrasonic *usonic;
 };
@@ -312,8 +313,7 @@ struct DHT
 {
   uint8_t pin;
   uint8_t dht_type;
-  int last_value;         // Last value read for input mode
-  int differential;       // difference between current and last value needed
+  unsigned int last_value;
   DHTStable *dht_sensor;
 };
 
@@ -453,8 +453,10 @@ void modify_reporting()
 
 void get_firmware_version()
 {
-  byte report_message[4] = {3, FIRMWARE_REPORT, FIRMWARE_MAJOR, FIRMWARE_MINOR};
-  Serial.write(report_message, 4);
+  byte report_message[5] = {4, FIRMWARE_REPORT, FIRMWARE_MAJOR, FIRMWARE_MINOR,
+                            FIRMWARE_PATCH
+                           };
+  Serial.write(report_message, 5);
 }
 
 void are_you_there()
@@ -912,7 +914,6 @@ void scan_dhts()
     if (dht_current_millis - dht_previous_millis > dht_scan_interval)
     {
       // update for the next scan
-      //dht_previous_millis += dht_scan_interval;
       dht_previous_millis = dht_current_millis;
 
       // read and report all the dht sensors
