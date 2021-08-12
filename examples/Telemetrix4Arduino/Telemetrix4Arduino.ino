@@ -894,7 +894,7 @@ void onewire_search(){
                                         0xff};
     bool found;
 
-    ow->search(onewire_report_message, found);
+    ow->search(&onewire_report_message[3], found);
     Serial.write(onewire_report_message, 11);
 }
 
