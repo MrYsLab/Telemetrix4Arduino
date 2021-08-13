@@ -849,7 +849,10 @@ void onewire_init() {
 }
 
 void onewire_reset(){
-   ow->reset();
+   uint8_t reset_return = ow->reset();
+   uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_RESET, reset_return};
+
+  Serial.write(onewire_report_message, 4);
 }
 
 void onewire_select(){
