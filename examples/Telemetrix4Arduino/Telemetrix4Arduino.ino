@@ -255,7 +255,7 @@ command_descriptor command_table[] =
 #define DHT_READ_ERROR 1
 
 // firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 2
+#define FIRMWARE_MAJOR 3
 #define FIRMWARE_MINOR 0
 #define FIRMWARE_PATCH 0
 
