@@ -308,7 +308,11 @@ bool stop_reports = false; // a flag to stop sending all report messages
 
 // To translate a pin number from an integer value to its analog pin number
 // equivalent, this array is used to look up the value to use for the pin.
+#ifdef ARDUINO_SAMD_MKRWIFI1010
+int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6};
+#else
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15};
+#endif
 
 // a descriptor for digital pins
 struct pin_descriptor
@@ -407,6 +411,8 @@ void send_debug_info(byte id, int value)
 }
 
 // command functions
+
+// a function to loop back data over the serial port
 void serial_loopback()
 {
   byte loop_back_buffer[3] = {2, (byte)SERIAL_LOOP_BACK, command_buffer[0]};
@@ -414,6 +420,11 @@ void serial_loopback()
 }
 
 void set_pin_mode()
+/*
+    Set a pin to digital input, digital input_pullup, digital output,
+    and analog input. PWM is considered digital output, and i2c, spi, dht,
+    sonar, servo, and onewire have their own init methods.
+*/
 {
   byte pin;
   byte mode;
@@ -446,11 +457,13 @@ void set_pin_mode()
   }
 }
 
+// set the analog scanning interval
 void set_analog_scanning_interval()
 {
   analog_sampling_interval = command_buffer[0];
 }
 
+// set the state of digital output pin
 void digital_write()
 {
   byte pin;
@@ -460,6 +473,9 @@ void digital_write()
   digitalWrite(pin, value);
 }
 
+// set the pwm value for a digital output pin
+// The term analog is confusing here, but it is what
+// Arduino uses.
 void analog_write()
 {
   // command_buffer[0] = PIN, command_buffer[1] = value_msb,
@@ -473,6 +489,10 @@ void analog_write()
   analogWrite(pin, value);
 }
 
+// This method allows you modify what reports are generated.
+// You can disable all reports, including dhts, and sonar.
+// You can disable only digital and analog reports on a
+// pin basis, or enable those on a pin basis.
 void modify_reporting()
 {
   int pin = command_buffer[1];
@@ -518,6 +538,7 @@ void modify_reporting()
   }
 }
 
+// Return the firmware version number
 void get_firmware_version()
 {
   byte report_message[5] = {4, FIRMWARE_REPORT, FIRMWARE_MAJOR, FIRMWARE_MINOR,
@@ -526,6 +547,7 @@ void get_firmware_version()
   Serial.write(report_message, 5);
 }
 
+// Query the firmware for the Arduino ID in use
 void are_you_there()
 {
   byte report_message[3] = {2, I_AM_HERE, ARDUINO_ID};
@@ -552,6 +574,7 @@ int find_servo()
   return index;
 }
 
+// Associate a pin with a servo
 void servo_attach()
 {
 
@@ -614,6 +637,7 @@ void servo_detach()
    i2c functions
  **********************************/
 
+// initialize i2c data transfers
 void i2c_begin()
 {
   byte i2c_port = command_buffer[0];
@@ -630,6 +654,7 @@ void i2c_begin()
 #endif
 }
 
+// read a number of bytes from a specific i2c register
 void i2c_read()
 {
   // data in the incoming message:
@@ -707,6 +732,7 @@ void i2c_read()
   }
 }
 
+// write a specified number of bytes to an i2c device
 void i2c_write()
 {
   // command_buffer[0] is the number of bytes to send
@@ -743,6 +769,7 @@ void i2c_write()
    HC-SR04 adding a new device
  **********************************/
 
+// associate 2 pins as trigger and echo pins for a sonar device
 void sonar_new()
 {
   // command_buffer[0] = trigger pin,  command_buffer[1] = echo pin
@@ -756,6 +783,7 @@ void sonar_new()
    DHT adding a new device
  **********************************/
 
+// associate a pin with a dht device
 void dht_new()
 {
 
@@ -769,8 +797,7 @@ void dht_new()
   }
 }
 
-
-
+// initialize the SPI interface
 void init_spi() {
 
   int cs_pin;
@@ -786,6 +813,7 @@ void init_spi() {
   SPI.begin();
 }
 
+// write a number of blocks to the SPI device
 void write_blocking_spi() {
   int num_bytes = command_buffer[0];
 
@@ -794,6 +822,7 @@ void write_blocking_spi() {
   }
 }
 
+// read a number of bytes from the SPI device
 void read_blocking_spi() {
   // command_buffer[0] == number of bytes to read
   // command_buffer[1] == read register
@@ -822,6 +851,7 @@ void read_blocking_spi() {
   Serial.write(spi_report_message, command_buffer[0] + 4);
 }
 
+// modify the SPI format
 void set_format_spi() {
 
   #if defined(__AVR__)
@@ -838,23 +868,27 @@ void set_format_spi() {
   #endif
 }
 
+// set the SPI chip select line
 void spi_cs_control() {
   int cs_pin = command_buffer[0];
   int cs_state = command_buffer[1];
   digitalWrite(cs_pin, cs_state);
 }
 
+// Initialize the OneWire interface
 void onewire_init() {
   ow = new OneWire(command_buffer[0]);
 }
 
+// send a OneWire reset
 void onewire_reset(){
    uint8_t reset_return = ow->reset();
    uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_RESET, reset_return};
 
-  Serial.write(onewire_report_message, 4);
+   Serial.write(onewire_report_message, 4);
 }
 
+// send a OneWire select
 void onewire_select(){
     uint8_t dev_address[8];
 
@@ -864,15 +898,18 @@ void onewire_select(){
     ow->select(dev_address);
 }
 
+// send a OneWire skip
 void onewire_skip(){
     ow->skip();
 }
 
+// write 1 byte to the OneWire device
 void onewire_write(){
     // write data and power values
     ow->write(command_buffer[0], command_buffer[1]);
 }
 
+// read one byte from the OneWire device
 void onewire_read(){
   // onewire_report_message[0] = length of message including this element
   // onewire_report_message[1] = ONEWIRE_REPORT
@@ -881,16 +918,18 @@ void onewire_read(){
 
   uint8_t data = ow->read();
 
-  uint8_t onewire_report_message[] = {4, ONE_WIRE_REPORT, ONE_WIRE_READ, data};
+  uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_READ, data};
 
-  Serial.write(onewire_report_message, 5);
+  Serial.write(onewire_report_message, 4);
 
 }
 
+// Send a OneWire reset search command
 void onewire_reset_search(){
   ow->reset_search();
 }
 
+// Send a OneWire search command
 void onewire_search(){
     uint8_t onewire_report_message[] = {10, ONE_WIRE_REPORT, ONE_WIRE_SEARCH,
                                         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -901,12 +940,15 @@ void onewire_search(){
     Serial.write(onewire_report_message, 11);
 }
 
+// Calculate a OneWire CRC8 on a buffer containing a specified number of bytes
 void onewire_crc8(){
     uint8_t crc = ow->crc8(&command_buffer[1], command_buffer[0]);
     uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_CRC8, crc};
     Serial.write(onewire_report_message, 4);
 
 }
+
+// stop all reports from being generated
 void stop_all_reports()
 {
   stop_reports = true;
@@ -914,6 +956,7 @@ void stop_all_reports()
   Serial.flush();
 }
 
+// enable all reports to be generated
 void enable_all_reports()
 {
   Serial.flush();
@@ -921,6 +964,7 @@ void enable_all_reports()
   delay(20);
 }
 
+// retrieve the next command from the serial link
 void get_next_command()
 {
   byte command;
@@ -968,6 +1012,7 @@ void get_next_command()
   command_entry.command_func();
 }
 
+// scan the digital input pins for changes
 void scan_digital_inputs()
 {
   byte value;
@@ -1001,6 +1046,7 @@ void scan_digital_inputs()
   }
 }
 
+// scan the analog input pins for changes
 void scan_analog_inputs()
 {
   int value;
@@ -1051,6 +1097,7 @@ void scan_analog_inputs()
   }
 }
 
+// scan the sonar devices for changes
 void scan_sonars()
 {
   unsigned int distance;
@@ -1085,6 +1132,7 @@ void scan_sonars()
   }
 }
 
+// scan dht devices for changes
 void scan_dhts()
 {
   // prebuild report for valid data
@@ -1175,6 +1223,7 @@ void scan_dhts()
   }
 }
 
+// reset the internal data structures to a known state
 void reset_data() {
   // reset the data structures
 
@@ -1213,6 +1262,7 @@ void reset_data() {
   enable_all_reports();
 }
 
+// initialize the pin data structures
 void init_pin_structures() {
   for (byte i = 0; i < MAX_DIGITAL_PINS_SUPPORTED; i++)
   {
