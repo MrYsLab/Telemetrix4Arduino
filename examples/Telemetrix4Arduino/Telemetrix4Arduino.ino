@@ -22,6 +22,9 @@
 #include <Ultrasonic.h>
 #include <Wire.h>
 #include <DHTStable.h>
+#include <SPI.h>
+#include <OneWire.h>
+
 // We define these here to provide a forward reference.
 // If you add a new command, you must add the command handler
 // here as well.
@@ -66,6 +69,34 @@ extern void reset_data();
 
 extern void init_pin_structures();
 
+extern void init_spi();
+
+extern void write_blocking_spi();
+
+extern void read_blocking_spi();
+
+extern void set_format_spi();
+
+extern void spi_cs_control();
+
+extern void onewire_init();
+
+extern void onewire_reset();
+
+extern void onewire_select();
+
+extern void onewire_skip();
+
+extern void onewire_write();
+
+extern void onewire_read();
+
+extern void onewire_reset_search();
+
+extern void onewire_search();
+
+extern void onewire_crc8();
+
 
 // uncomment out the next line to create a 2nd i2c port
 // #define SECOND_I2C_PORT
@@ -80,6 +111,9 @@ TwoWire Wire2(SECOND_I2C_PORT_SDA, SECOND_I2C_PORT_SCL);
 
 // a pointer to an active TwoWire object
 TwoWire *current_i2c_port;
+
+// a pointer to a OneWire object
+OneWire *ow = NULL;
 
 
 // This value must be the same as specified when instantiating the
@@ -111,6 +145,21 @@ TwoWire *current_i2c_port;
 #define SET_ANALOG_SCANNING_INTERVAL 16
 #define ENABLE_ALL_REPORTS 17
 #define RESET 18
+#define SPI_INIT 19
+#define SPI_WRITE_BLOCKING 20
+#define SPI_READ_BLOCKING 21
+#define SPI_SET_FORMAT 22
+#define SPI_CS_CONTROL 23
+#define ONE_WIRE_INIT 24
+#define ONE_WIRE_RESET 25
+#define ONE_WIRE_SELECT 26
+#define ONE_WIRE_SKIP 27
+#define ONE_WIRE_WRITE 28
+#define ONE_WIRE_READ 29
+#define ONE_WIRE_RESET_SEARCH 30
+#define ONE_WIRE_SEARCH 31
+#define ONE_WIRE_CRC8 32
+
 
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
@@ -125,9 +174,7 @@ struct command_descriptor
 
 // An array of pointers to the command functions
 
-// If you add new commands, make sure to extend the siz of this
-// array.
-command_descriptor command_table[19] =
+command_descriptor command_table[] =
 {
   {&serial_loopback},
   {&set_pin_mode},
@@ -143,11 +190,25 @@ command_descriptor command_table[19] =
   {&i2c_read},
   {&i2c_write},
   {&sonar_new},
-  {dht_new},
-  {stop_all_reports},
-  {set_analog_scanning_interval},
-  {enable_all_reports},
-  {reset_data}
+  {&dht_new},
+  {&stop_all_reports},
+  {&set_analog_scanning_interval},
+  {&enable_all_reports},
+  {&reset_data},
+  {&init_spi},
+  {&write_blocking_spi},
+  {&read_blocking_spi},
+  {&set_format_spi},
+  {&spi_cs_control},
+  {&onewire_init},
+  {&onewire_reset},
+  {&onewire_select},
+  {&onewire_skip},
+  {&onewire_write},
+  {&onewire_read},
+  {&onewire_reset_search},
+  {&onewire_search},
+  {&onewire_crc8}
 };
 
 // Input pin reporting control sub commands (modify_reporting)
@@ -184,6 +245,9 @@ command_descriptor command_table[19] =
 #define I2C_READ_REPORT 10
 #define SONAR_DISTANCE 11
 #define DHT_REPORT 12
+#define SPI_REPORT 13
+#define ONE_WIRE_REPORT 14
+
 #define DEBUG_PRINT 99
 
 // DHT Report sub-types
@@ -191,12 +255,15 @@ command_descriptor command_table[19] =
 #define DHT_READ_ERROR 1
 
 // firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 2
+#define FIRMWARE_MAJOR 3
 #define FIRMWARE_MINOR 0
 #define FIRMWARE_PATCH 0
 
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
+
+// A buffer to hold spi report data
+byte spi_report_message[64];
 
 bool stop_reports = false; // a flag to stop sending all report messages
 
@@ -241,7 +308,11 @@ bool stop_reports = false; // a flag to stop sending all report messages
 
 // To translate a pin number from an integer value to its analog pin number
 // equivalent, this array is used to look up the value to use for the pin.
+#ifdef ARDUINO_SAMD_MKRWIFI1010
+int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6};
+#else
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15};
+#endif
 
 // a descriptor for digital pins
 struct pin_descriptor
@@ -340,6 +411,8 @@ void send_debug_info(byte id, int value)
 }
 
 // command functions
+
+// a function to loop back data over the serial port
 void serial_loopback()
 {
   byte loop_back_buffer[3] = {2, (byte)SERIAL_LOOP_BACK, command_buffer[0]};
@@ -347,6 +420,11 @@ void serial_loopback()
 }
 
 void set_pin_mode()
+/*
+    Set a pin to digital input, digital input_pullup, digital output,
+    and analog input. PWM is considered digital output, and i2c, spi, dht,
+    sonar, servo, and onewire have their own init methods.
+*/
 {
   byte pin;
   byte mode;
@@ -379,11 +457,13 @@ void set_pin_mode()
   }
 }
 
+// set the analog scanning interval
 void set_analog_scanning_interval()
 {
   analog_sampling_interval = command_buffer[0];
 }
 
+// set the state of digital output pin
 void digital_write()
 {
   byte pin;
@@ -393,6 +473,9 @@ void digital_write()
   digitalWrite(pin, value);
 }
 
+// set the pwm value for a digital output pin
+// The term analog is confusing here, but it is what
+// Arduino uses.
 void analog_write()
 {
   // command_buffer[0] = PIN, command_buffer[1] = value_msb,
@@ -406,6 +489,10 @@ void analog_write()
   analogWrite(pin, value);
 }
 
+// This method allows you modify what reports are generated.
+// You can disable all reports, including dhts, and sonar.
+// You can disable only digital and analog reports on a
+// pin basis, or enable those on a pin basis.
 void modify_reporting()
 {
   int pin = command_buffer[1];
@@ -451,6 +538,7 @@ void modify_reporting()
   }
 }
 
+// Return the firmware version number
 void get_firmware_version()
 {
   byte report_message[5] = {4, FIRMWARE_REPORT, FIRMWARE_MAJOR, FIRMWARE_MINOR,
@@ -459,6 +547,7 @@ void get_firmware_version()
   Serial.write(report_message, 5);
 }
 
+// Query the firmware for the Arduino ID in use
 void are_you_there()
 {
   byte report_message[3] = {2, I_AM_HERE, ARDUINO_ID};
@@ -485,6 +574,7 @@ int find_servo()
   return index;
 }
 
+// Associate a pin with a servo
 void servo_attach()
 {
 
@@ -547,6 +637,7 @@ void servo_detach()
    i2c functions
  **********************************/
 
+// initialize i2c data transfers
 void i2c_begin()
 {
   byte i2c_port = command_buffer[0];
@@ -563,6 +654,7 @@ void i2c_begin()
 #endif
 }
 
+// read a number of bytes from a specific i2c register
 void i2c_read()
 {
   // data in the incoming message:
@@ -640,6 +732,7 @@ void i2c_read()
   }
 }
 
+// write a specified number of bytes to an i2c device
 void i2c_write()
 {
   // command_buffer[0] is the number of bytes to send
@@ -676,6 +769,7 @@ void i2c_write()
    HC-SR04 adding a new device
  **********************************/
 
+// associate 2 pins as trigger and echo pins for a sonar device
 void sonar_new()
 {
   // command_buffer[0] = trigger pin,  command_buffer[1] = echo pin
@@ -689,6 +783,7 @@ void sonar_new()
    DHT adding a new device
  **********************************/
 
+// associate a pin with a dht device
 void dht_new()
 {
 
@@ -702,6 +797,158 @@ void dht_new()
   }
 }
 
+// initialize the SPI interface
+void init_spi() {
+
+  int cs_pin;
+
+  //Serial.print(command_buffer[1]);
+  // initialize chip select GPIO pins
+  for (int i = 0; i < command_buffer[0]; i++) {
+    cs_pin = command_buffer[1 + i];
+    // Chip select is active-low, so we'll initialise it to a driven-high state
+    pinMode(cs_pin, OUTPUT);
+    digitalWrite(cs_pin, HIGH);
+  }
+  SPI.begin();
+}
+
+// write a number of blocks to the SPI device
+void write_blocking_spi() {
+  int num_bytes = command_buffer[0];
+
+  for (int i = 0; i < num_bytes; i++) {
+    SPI.transfer(command_buffer[1 + i] );
+  }
+}
+
+// read a number of bytes from the SPI device
+void read_blocking_spi() {
+  // command_buffer[0] == number of bytes to read
+  // command_buffer[1] == read register
+
+  // spi_report_message[0] = length of message including this element
+  // spi_report_message[1] = SPI_REPORT
+  // spi_report_message[2] = register used for the read
+  // spi_report_message[3] = number of bytes returned
+  // spi_report_message[4..] = data read
+
+  // configure the report message
+  // calculate the packet length
+  spi_report_message[0] = command_buffer[0] + 3; // packet length
+  spi_report_message[1] = SPI_REPORT;
+  spi_report_message[2] = command_buffer[1]; // register
+  spi_report_message[3] = command_buffer[0]; // number of bytes read
+
+  // write the register out. OR it with 0x80 to indicate a read
+  SPI.transfer(command_buffer[1] | 0x80);
+
+  // now read the specified number of bytes and place
+  // them in the report buffer
+  for (int i = 0; i < command_buffer[0] ; i++) {
+    spi_report_message[i + 4] = SPI.transfer(0x00);
+  }
+  Serial.write(spi_report_message, command_buffer[0] + 4);
+}
+
+// modify the SPI format
+void set_format_spi() {
+
+  #if defined(__AVR__)
+    SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
+  #else
+     BitOrder b;
+
+    if (command_buffer[1]) {
+        b = MSBFIRST;
+    } else {
+        b = LSBFIRST;
+    }
+    SPISettings(command_buffer[0], b, command_buffer[2]);
+  #endif
+}
+
+// set the SPI chip select line
+void spi_cs_control() {
+  int cs_pin = command_buffer[0];
+  int cs_state = command_buffer[1];
+  digitalWrite(cs_pin, cs_state);
+}
+
+// Initialize the OneWire interface
+void onewire_init() {
+  ow = new OneWire(command_buffer[0]);
+}
+
+// send a OneWire reset
+void onewire_reset(){
+   uint8_t reset_return = ow->reset();
+   uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_RESET, reset_return};
+
+   Serial.write(onewire_report_message, 4);
+}
+
+// send a OneWire select
+void onewire_select(){
+    uint8_t dev_address[8];
+
+    for(int i = 0; i < 8; i++){
+        dev_address[i] = command_buffer[i];
+    }
+    ow->select(dev_address);
+}
+
+// send a OneWire skip
+void onewire_skip(){
+    ow->skip();
+}
+
+// write 1 byte to the OneWire device
+void onewire_write(){
+    // write data and power values
+    ow->write(command_buffer[0], command_buffer[1]);
+}
+
+// read one byte from the OneWire device
+void onewire_read(){
+  // onewire_report_message[0] = length of message including this element
+  // onewire_report_message[1] = ONEWIRE_REPORT
+  // onewire_report_message[2] = message subtype = 29
+  // onewire_report_message[3] = data read
+
+  uint8_t data = ow->read();
+
+  uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_READ, data};
+
+  Serial.write(onewire_report_message, 4);
+
+}
+
+// Send a OneWire reset search command
+void onewire_reset_search(){
+  ow->reset_search();
+}
+
+// Send a OneWire search command
+void onewire_search(){
+    uint8_t onewire_report_message[] = {10, ONE_WIRE_REPORT, ONE_WIRE_SEARCH,
+                                        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                        0xff};
+    bool found;
+
+    ow->search(&onewire_report_message[3], found);
+    Serial.write(onewire_report_message, 11);
+}
+
+// Calculate a OneWire CRC8 on a buffer containing a specified number of bytes
+void onewire_crc8(){
+    uint8_t crc = ow->crc8(&command_buffer[1], command_buffer[0]);
+    uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_CRC8, crc};
+    Serial.write(onewire_report_message, 4);
+
+}
+
+// stop all reports from being generated
 void stop_all_reports()
 {
   stop_reports = true;
@@ -709,6 +956,7 @@ void stop_all_reports()
   Serial.flush();
 }
 
+// enable all reports to be generated
 void enable_all_reports()
 {
   Serial.flush();
@@ -716,6 +964,7 @@ void enable_all_reports()
   delay(20);
 }
 
+// retrieve the next command from the serial link
 void get_next_command()
 {
   byte command;
@@ -763,6 +1012,7 @@ void get_next_command()
   command_entry.command_func();
 }
 
+// scan the digital input pins for changes
 void scan_digital_inputs()
 {
   byte value;
@@ -796,6 +1046,7 @@ void scan_digital_inputs()
   }
 }
 
+// scan the analog input pins for changes
 void scan_analog_inputs()
 {
   int value;
@@ -846,6 +1097,7 @@ void scan_analog_inputs()
   }
 }
 
+// scan the sonar devices for changes
 void scan_sonars()
 {
   unsigned int distance;
@@ -880,6 +1132,7 @@ void scan_sonars()
   }
 }
 
+// scan dht devices for changes
 void scan_dhts()
 {
   // prebuild report for valid data
@@ -970,6 +1223,7 @@ void scan_dhts()
   }
 }
 
+// reset the internal data structures to a known state
 void reset_data() {
   // reset the data structures
 
@@ -1008,6 +1262,7 @@ void reset_data() {
   enable_all_reports();
 }
 
+// initialize the pin data structures
 void init_pin_structures() {
   for (byte i = 0; i < MAX_DIGITAL_PINS_SUPPORTED; i++)
   {
