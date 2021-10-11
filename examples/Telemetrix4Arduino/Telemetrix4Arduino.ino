@@ -191,6 +191,10 @@ OneWire *ow = NULL;
 #define STEPPER_SET_3_PINS_INVERTED 48
 #define STEPPER_SET_4_PINS_INVERTED 49
 #define STEPPER_IS_RUNNING 50
+#define STEPPER_ADD_MULTI_STEPPER 51
+#define STEPPER_MULTI_MOVE_TO 52
+#define STEPPER_MULTI_RUN 53
+
 
 
 // When adding a new command update the command_table.
