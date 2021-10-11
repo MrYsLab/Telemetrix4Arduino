@@ -24,6 +24,7 @@
 #include <DHTStable.h>
 #include <SPI.h>
 #include <OneWire.h>
+#include <AccelStepper.h>
 
 // We define these here to provide a forward reference.
 // If you add a new command, you must add the command handler
@@ -97,6 +98,19 @@ extern void onewire_search();
 
 extern void onewire_crc8();
 
+extern void set_pin_mode_stepper();
+
+extern void stepper_move_to();
+
+extern void stepper_move();
+
+extern void stepper_run();
+
+extern void stepper_run_speed();
+
+extern void stepper_set_max_speed();
+
+
 
 // uncomment out the next line to create a 2nd i2c port
 // #define SECOND_I2C_PORT
@@ -159,6 +173,24 @@ OneWire *ow = NULL;
 #define ONE_WIRE_RESET_SEARCH 30
 #define ONE_WIRE_SEARCH 31
 #define ONE_WIRE_CRC8 32
+#define SET_PIN_MODE_STEPPER 33
+#define STEPPER_MOVE_TO 34
+#define STEPPER_MOVE 35
+#define STEPPER_RUN 36
+#define STEPPER_RUN_SPEED 37
+#define STEPPER_SET_MAX_SPEED 38
+#define STEPPER_SET_ACCELERATION 39
+#define STEPPER_SET_SPEED 40
+#define STEPPER_SET_CURRENT_POSITION 41
+#define STEPPER_RUN_SPEED_TO_POSITION 42
+#define STEPPER_STOP 43
+#define STEPPER_DISABLE_OUTPUTS 44
+#define STEPPER_ENABLE_OUTPUTS 45
+#define STEPPER_SET_MINIMUM_PULSE_WIDTH 46
+#define STEPPER_SET_ENABLE_PIN 47
+#define STEPPER_SET_3_PINS_INVERTED 48
+#define STEPPER_SET_4_PINS_INVERTED 49
+#define STEPPER_IS_RUNNING 50
 
 
 // When adding a new command update the command_table.
@@ -208,7 +240,13 @@ command_descriptor command_table[] =
   {&onewire_read},
   {&onewire_reset_search},
   {&onewire_search},
-  {&onewire_crc8}
+  {&onewire_crc8},
+  {&set_pin_mode_stepper},
+  {&stepper_move_to},
+  {&stepper_move},
+  {&stepper_run},
+  {&stepper_run_speed},
+  {&stepper_set_max_speed}
 };
 
 // Input pin reporting control sub commands (modify_reporting)
@@ -247,6 +285,13 @@ command_descriptor command_table[] =
 #define DHT_REPORT 12
 #define SPI_REPORT 13
 #define ONE_WIRE_REPORT 14
+#define STEPPER_DISTANCE_TO_GO 15
+#define STEPPER_TARGET_POSITION 16
+#define STEPPER_CURRENT_POSITION 17
+#define STEPPER_RUNNING_REPORT 18
+#define STEPPER_ADD_MULTI_STEPPER 19
+#define STEPPER_MULTI_MOVE_TO 20
+#define STEPPER_MULTI_RUN 21
 
 #define DEBUG_PRINT 99
 
@@ -255,7 +300,7 @@ command_descriptor command_table[] =
 #define DHT_READ_ERROR 1
 
 // firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 3
+#define FIRMWARE_MAJOR 4
 #define FIRMWARE_MINOR 0
 #define FIRMWARE_PATCH 0
 
@@ -396,6 +441,11 @@ byte dht_index = 0; // index into dht struct
 unsigned long dht_current_millis;      // for analog input loop
 unsigned long dht_previous_millis;     // for analog input loop
 unsigned int dht_scan_interval = 2000; // scan dht's every 2 seconds
+
+#define MAX_NUMBER_OF_STEPPERS 4
+
+// stepper motor data
+AccelStepper steppers[MAX_NUMBER_OF_STEPPERS];
 
 // buffer to hold incoming command data
 byte command_buffer[MAX_COMMAND_LENGTH];
@@ -946,6 +996,76 @@ void onewire_crc8(){
     uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_CRC8, crc};
     Serial.write(onewire_report_message, 4);
 
+}
+
+// Stepper Motor supported
+// Stepper Motor supported
+void set_pin_mode_stepper(){
+    // motor_id = command_buffer[0]
+    // interface = command_buffer[1]
+    // pin1 = command_buffer[2]
+    // pin2 = command_buffer[3]
+    // pin3 = command_buffer[4]
+    // pin4 = command_buffer[5]
+    // enable = command_buffer[6]
+
+    // instantiate a stepper object and store it in the stepper array
+    steppers[command_buffer[0]] = AccelStepper(command_buffer[1], command_buffer[2],
+                                             command_buffer[3], command_buffer[4],
+                                             command_buffer[5], command_buffer[6]);
+}
+
+void stepper_move_to(){
+    // motor_id = command_buffer[0]
+    // position MSB = command_buffer[1]
+    // position MSB-1 = command_buffer[2]
+    // position MSB-2 = command_buffer[3]
+    // position LSB = command_buffer[4]
+
+    // convert the 4 position bytes to a long
+    long position = command_buffer[1] << 16;
+    position += command_buffer[2] << 12;
+    position += command_buffer[3] << 8;
+    position += command_buffer[4] ;
+
+    steppers[command_buffer[0]].moveTo(position);
+
+}
+
+void stepper_move(){
+    // motor_id = command_buffer[0]
+    // position MSB = command_buffer[1]
+    // position MSB-1 = command_buffer[2]
+    // position MSB-2 = command_buffer[3]
+    // position LSB = command_buffer[4]
+
+    // convert the 4 position bytes to a long
+    long position = command_buffer[1] << 16;
+    position += command_buffer[2] << 12;
+    position += command_buffer[3] << 8;
+    position += command_buffer[4] ;
+
+    steppers[command_buffer[0]].move(position);
+
+}
+
+void stepper_run(){
+    // motor_id = command_buffer[0]
+    steppers[command_buffer[0]].run();
+}
+
+void stepper_run_speed(){
+    // motor_id = command_buffer[0]
+    steppers[command_buffer[0]].runSpeed();
+}
+
+void stepper_set_max_speed(){
+    // motor_id = command_buffer[0]
+    // speed_msb = command_buffer[1]
+    // speed_lsb = command_buffer[2]
+
+    float max_speed= (float) (command_buffer[1] << 8 + command_buffer[2]);
+    steppers[command_buffer[0]].setMaxSpeed(max_speed);
 }
 
 // stop all reports from being generated
