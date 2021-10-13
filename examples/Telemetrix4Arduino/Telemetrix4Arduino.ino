@@ -110,6 +110,31 @@ extern void stepper_run_speed();
 
 extern void stepper_set_max_speed();
 
+extern void stepper_set_acceleration();
+
+extern void stepper_set_speed();
+
+extern void stepper_distance_to_go();
+
+extern void stepper_target_position();
+
+extern void stepper_current_position();
+
+extern void stepper_set_current_position();
+
+extern void stepper_run_speed_to_position();
+
+extern void stepper_stop();
+
+extern void stepper_disable_outputs();
+
+extern void stepper_enable_outputs();
+
+extern void stepper_set_minimum_pulse_width();
+
+extern void stepper_set_3_pins_inverted();
+
+extern void stepper_set_4_pins_inverted();
 
 
 // uncomment out the next line to create a 2nd i2c port
@@ -195,8 +220,6 @@ OneWire *ow = NULL;
 #define STEPPER_MULTI_MOVE_TO 52
 #define STEPPER_MULTI_RUN 53
 
-
-
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
 // the command byte itself, and does not include the command
@@ -250,7 +273,21 @@ command_descriptor command_table[] =
   {&stepper_move},
   {&stepper_run},
   {&stepper_run_speed},
-  {&stepper_set_max_speed}
+  {&stepper_set_max_speed},
+  {&stepper_set_acceleration},
+  {&stepper_set_speed},
+  {&stepper_distance_to_go},
+  (&stepper_target_position),
+  (&stepper_current_position),
+  (&stepper_set_current_position),
+  (&stepper_run_speed_to_position),
+  (&stepper_stop),
+  (&stepper_enable_outputs),
+  (&stepper_disable_outputs),
+  (&stepper_set_minimum_pulse_width),
+  (&stepper_set_3_pins_inverted),
+  (&stepper_set_4_pins_inverted)
+
 };
 
 // Input pin reporting control sub commands (modify_reporting)
@@ -293,9 +330,7 @@ command_descriptor command_table[] =
 #define STEPPER_TARGET_POSITION 16
 #define STEPPER_CURRENT_POSITION 17
 #define STEPPER_RUNNING_REPORT 18
-#define STEPPER_ADD_MULTI_STEPPER 19
-#define STEPPER_MULTI_MOVE_TO 20
-#define STEPPER_MULTI_RUN 21
+
 
 #define DEBUG_PRINT 99
 
@@ -1027,8 +1062,8 @@ void stepper_move_to(){
     // position LSB = command_buffer[4]
 
     // convert the 4 position bytes to a long
-    long position = command_buffer[1] << 16;
-    position += command_buffer[2] << 12;
+    long position = command_buffer[1] << 24;
+    position += command_buffer[2] << 16;
     position += command_buffer[3] << 8;
     position += command_buffer[4] ;
 
@@ -1044,8 +1079,8 @@ void stepper_move(){
     // position LSB = command_buffer[4]
 
     // convert the 4 position bytes to a long
-    long position = command_buffer[1] << 16;
-    position += command_buffer[2] << 12;
+    long position = command_buffer[1] << 24;
+    position += command_buffer[2] << 16;
     position += command_buffer[3] << 8;
     position += command_buffer[4] ;
 
@@ -1070,6 +1105,164 @@ void stepper_set_max_speed(){
 
     float max_speed= (float) (command_buffer[1] << 8 + command_buffer[2]);
     steppers[command_buffer[0]].setMaxSpeed(max_speed);
+}
+
+void stepper_set_acceleration(){
+    // motor_id = command_buffer[0]
+    // accel_msb = command_buffer[1]
+    // accel = command_buffer[2]
+
+    float acceleration = (float) (command_buffer[1] << 8 + command_buffer[2]);
+    steppers[command_buffer[0]].setAcceleration(acceleration);
+}
+
+void stepper_set_speed(){
+
+    // motor_id = command_buffer[0]
+    // speed_msb = command_buffer[1]
+    // speed_lsb = command_buffer[2]
+
+    float speed= (float) (command_buffer[1] << 8 + command_buffer[2]);
+    steppers[command_buffer[0]].setSpeed(speed);
+}
+
+void stepper_distance_to_go() {
+    // motor_id = command_buffer[0]
+
+    // report = STEPPER_DISTANCE_TO_GO, motor_id, distance(8 bytes)
+
+
+
+    byte report_message[7] = {6, STEPPER_DISTANCE_TO_GO, command_buffer[0]};
+
+    long dtg = steppers[command_buffer[0]].distanceToGo();
+
+
+    report_message[3] = (byte) ((dtg & 0xFF000000) >> 24);
+    report_message[4] = (byte) ((dtg & 0x00FF0000) >> 16);
+    report_message[5] = (byte) ((dtg & 0x0000FF00) >> 8);
+    report_message[6] = (byte) ((dtg & 0x000000FF));
+
+    // motor_id = command_buffer[0]
+    Serial.write(report_message, 7);
+}
+
+void stepper_target_position() {
+    // motor_id = command_buffer[0]
+
+    // report = STEPPER_TARGET_POSITION, motor_id, distance(8 bytes)
+
+
+
+    byte report_message[7] = {6, STEPPER_TARGET_POSITION, command_buffer[0]};
+
+    long target = steppers[command_buffer[0]].targetPosition();
+
+
+    report_message[3] = (byte) ((target & 0xFF000000) >> 24);
+    report_message[4] = (byte) ((target & 0x00FF0000) >> 16);
+    report_message[5] = (byte) ((target & 0x0000FF00) >> 8);
+    report_message[6] = (byte) ((target & 0x000000FF));
+
+    // motor_id = command_buffer[0]
+    Serial.write(report_message, 7);
+}
+
+void stepper_current_position() {
+    // motor_id = command_buffer[0]
+
+    // report = STEPPER_CURRENT_POSITION, motor_id, distance(8 bytes)
+
+
+
+    byte report_message[7] = {6, STEPPER_CURRENT_POSITION, command_buffer[0]};
+
+    long position = steppers[command_buffer[0]].targetPosition();
+
+
+    report_message[3] = (byte) ((position & 0xFF000000) >> 24);
+    report_message[4] = (byte) ((position & 0x00FF0000) >> 16);
+    report_message[5] = (byte) ((position & 0x0000FF00) >> 8);
+    report_message[6] = (byte) ((position & 0x000000FF));
+
+    // motor_id = command_buffer[0]
+    Serial.write(report_message, 7);
+}
+
+void stepper_set_current_position(){
+    // motor_id = command_buffer[0]
+    // position MSB = command_buffer[1]
+    // position MSB-1 = command_buffer[2]
+    // position MSB-2 = command_buffer[3]
+    // position LSB = command_buffer[4]
+
+    // convert the 4 position bytes to a long
+    long position = command_buffer[1] << 24;
+    position += command_buffer[2] << 16;
+    position += command_buffer[3] << 8;
+    position += command_buffer[4] ;
+
+    steppers[command_buffer[0]].setCurrentPosition(position);
+
+}
+
+void stepper_run_speed_to_position(){
+    steppers[command_buffer[0]].runSpeedToPosition();
+}
+
+void stepper_stop(){
+    steppers[command_buffer[0]].stop();
+}
+
+void stepper_disable_outputs(){
+    steppers[command_buffer[0]].disableOutputs();
+}
+
+void stepper_enable_outputs(){
+    steppers[command_buffer[0]].enableOutputs();
+}
+
+void stepper_set_minimum_pulse_width(){
+    unsigned int pulse_width = command_buffer[1] << 8 + command_buffer[2];
+    steppers[command_buffer[0]].setMinPulseWidth(pulse_width);
+}
+
+void stepper_set_enable_pin(){
+    steppers[command_buffer[0]].setEnablePin((uint8_t) command_buffer[1]);
+}
+
+void stepper_set_3_pins_inverted(){
+    // command_buffer[1] = directionInvert
+    // command_buffer[2] = stepInvert
+    // command_buffer[3] = enableInvert
+    steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
+                                                (bool) command_buffer[2],
+                                                (bool) command_buffer[3]);
+}
+
+void stepper_set_4_pins_inverted(){
+    // command_buffer[1] = pin1
+    // command_buffer[2] = pin2
+    // command_buffer[3] = pin3
+    // command_buffer[4] = pin4
+    // command_buffer[5] = enable
+    steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
+                                                (bool) command_buffer[2],
+                                                (bool) command_buffer[3],
+                                                (bool) command_buffer[4],
+                                                (bool) command_buffer[5]);
+}
+
+void stepper_is_running(){
+    // motor_id = command_buffer[0]
+
+    // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
+
+    byte report_message[3] = {2, STEPPER_RUNNING_REPORT, command_buffer[0]};
+
+    report_message[2]  = steppers[command_buffer[0]].isRunning();
+
+    Serial.write(report_message, 3);
 }
 
 // stop all reports from being generated
