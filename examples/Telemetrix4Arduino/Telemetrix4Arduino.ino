@@ -25,6 +25,7 @@
 #include <SPI.h>
 #include <OneWire.h>
 #include <AccelStepper.h>
+#include <MultiStepper.h>
 
 // We define these here to provide a forward reference.
 // If you add a new command, you must add the command handler
@@ -135,6 +136,14 @@ extern void stepper_set_minimum_pulse_width();
 extern void stepper_set_3_pins_inverted();
 
 extern void stepper_set_4_pins_inverted();
+
+extern void stepper_add_multi_stepper();
+
+extern void stepper_multi_move_to();
+
+extern void stepper_multi_run();
+
+
 
 
 // uncomment out the next line to create a 2nd i2c port
@@ -286,8 +295,10 @@ command_descriptor command_table[] =
   (&stepper_disable_outputs),
   (&stepper_set_minimum_pulse_width),
   (&stepper_set_3_pins_inverted),
-  (&stepper_set_4_pins_inverted)
-
+  (&stepper_set_4_pins_inverted),
+  {&stepper_add_multi_stepper},
+  (&stepper_multi_move_to),
+  (&stepper_multi_run)
 };
 
 // Input pin reporting control sub commands (modify_reporting)
@@ -485,6 +496,8 @@ unsigned int dht_scan_interval = 2000; // scan dht's every 2 seconds
 
 // stepper motor data
 AccelStepper steppers[MAX_NUMBER_OF_STEPPERS];
+
+MultiStepper multi_steppers;
 
 // buffer to hold incoming command data
 byte command_buffer[MAX_COMMAND_LENGTH];
@@ -1266,6 +1279,37 @@ void stepper_is_running(){
 }
 
 // stop all reports from being generated
+
+void stepper_add_multi_stepper(){
+    // command_buffer[0] = number of motors
+    for(int i = 1; i <= command_buffer[0]; i++){
+        multi_steppers.addStepper(steppers[command_buffer[i]]);
+    }
+}
+
+void stepper_multi_run(){
+    multi_steppers.run();
+
+}
+
+void stepper_multi_move_to(){
+    // create an array of positions
+    // command_buffer[0] = number of entries
+    int num_values = command_buffer[0];
+    long positions[num_values];
+    long new_position;
+    int message_value_index = 1;
+    for(int i = 0; i < num_values; i++){
+        new_position = 0;
+        // convert the 4 position bytes to a long
+        new_position = command_buffer[message_value_index++] << 24;
+        new_position += command_buffer[message_value_index] << 16;
+        new_position += command_buffer[message_value_index] << 8;
+        new_position += command_buffer[message_value_index] ;
+    }
+    multi_steppers.moveTo(positions);
+}
+
 void stop_all_reports()
 {
   stop_reports = true;
