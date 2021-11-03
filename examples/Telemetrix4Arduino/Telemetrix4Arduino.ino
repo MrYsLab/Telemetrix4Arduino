@@ -1004,18 +1004,18 @@ void read_blocking_spi() {
 void set_format_spi() {
 #ifdef SPI_ENABLED
 
-  #if defined(__AVR__)
-    SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
-  #else
-     BitOrder b;
+#if defined(__AVR__)
+  SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
+#else
+  BitOrder b;
 
-    if (command_buffer[1]) {
-        b = MSBFIRST;
-    } else {
-        b = LSBFIRST;
-    }
-    SPISettings(command_buffer[0], b, command_buffer[2]);
-  #endif // avr
+  if (command_buffer[1]) {
+    b = MSBFIRST;
+  } else {
+    b = LSBFIRST;
+  }
+  SPISettings(command_buffer[0], b, command_buffer[2]);
+#endif // avr
 #endif // SPI_ENABLED
 }
 
@@ -1036,47 +1036,47 @@ void onewire_init() {
 }
 
 // send a OneWire reset
-void onewire_reset(){
+void onewire_reset() {
 #ifdef ONE_WIRE_ENABLED
 
-   uint8_t reset_return = ow->reset();
-   uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_RESET, reset_return};
+  uint8_t reset_return = ow->reset();
+  uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_RESET, reset_return};
 
-   Serial.write(onewire_report_message, 4);
+  Serial.write(onewire_report_message, 4);
 #endif
 }
 
 // send a OneWire select
-void onewire_select(){
+void onewire_select() {
 #ifdef ONE_WIRE_ENABLED
 
-    uint8_t dev_address[8];
+  uint8_t dev_address[8];
 
-    for(int i = 0; i < 8; i++){
-        dev_address[i] = command_buffer[i];
-    }
-    ow->select(dev_address);
+  for (int i = 0; i < 8; i++) {
+    dev_address[i] = command_buffer[i];
+  }
+  ow->select(dev_address);
 #endif
 }
 
 // send a OneWire skip
-void onewire_skip(){
+void onewire_skip() {
 #ifdef ONE_WIRE_ENABLED
-    ow->skip();
+  ow->skip();
 #endif
 }
 
 // write 1 byte to the OneWire device
-void onewire_write(){
+void onewire_write() {
 #ifdef ONE_WIRE_ENABLED
 
-    // write data and power values
-    ow->write(command_buffer[0], command_buffer[1]);
+  // write data and power values
+  ow->write(command_buffer[0], command_buffer[1]);
 #endif
 }
 
 // read one byte from the OneWire device
-void onewire_read(){
+void onewire_read() {
 #ifdef ONE_WIRE_ENABLED
 
   // onewire_report_message[0] = length of message including this element
@@ -1093,7 +1093,7 @@ void onewire_read(){
 }
 
 // Send a OneWire reset search command
-void onewire_reset_search(){
+void onewire_reset_search() {
 #ifdef ONE_WIRE_ENABLED
 
   ow->reset_search();
@@ -1101,357 +1101,358 @@ void onewire_reset_search(){
 }
 
 // Send a OneWire search command
-void onewire_search(){
+void onewire_search() {
 #ifdef ONE_WIRE_ENABLED
 
-    uint8_t onewire_report_message[] = {10, ONE_WIRE_REPORT, ONE_WIRE_SEARCH,
-                                        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                        0xff};
-    bool found;
+  uint8_t onewire_report_message[] = {10, ONE_WIRE_REPORT, ONE_WIRE_SEARCH,
+                                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                      0xff
+                                     };
+  bool found;
 
-    ow->search(&onewire_report_message[3], found);
-    Serial.write(onewire_report_message, 11);
+  ow->search(&onewire_report_message[3], found);
+  Serial.write(onewire_report_message, 11);
 #endif
 }
 
 // Calculate a OneWire CRC8 on a buffer containing a specified number of bytes
-void onewire_crc8(){
+void onewire_crc8() {
 #ifdef ONE_WIRE_ENABLED
 
-    uint8_t crc = ow->crc8(&command_buffer[1], command_buffer[0]);
-    uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_CRC8, crc};
-    Serial.write(onewire_report_message, 4);
+  uint8_t crc = ow->crc8(&command_buffer[1], command_buffer[0]);
+  uint8_t onewire_report_message[] = {3, ONE_WIRE_REPORT, ONE_WIRE_CRC8, crc};
+  Serial.write(onewire_report_message, 4);
 #endif
 
 }
 
 // Stepper Motor supported
 // Stepper Motor supported
-void set_pin_mode_stepper(){
+void set_pin_mode_stepper() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
-    // interface = command_buffer[1]
-    // pin1 = command_buffer[2]
-    // pin2 = command_buffer[3]
-    // pin3 = command_buffer[4]
-    // pin4 = command_buffer[5]
-    // enable = command_buffer[6]
+  // motor_id = command_buffer[0]
+  // interface = command_buffer[1]
+  // pin1 = command_buffer[2]
+  // pin2 = command_buffer[3]
+  // pin3 = command_buffer[4]
+  // pin4 = command_buffer[5]
+  // enable = command_buffer[6]
 
-    // instantiate a stepper object and store it in the stepper array
-    steppers[command_buffer[0]] = AccelStepper(command_buffer[1], command_buffer[2],
-                                             command_buffer[3], command_buffer[4],
-                                             command_buffer[5], command_buffer[6]);
+  // instantiate a stepper object and store it in the stepper array
+  steppers[command_buffer[0]] = AccelStepper(command_buffer[1], command_buffer[2],
+                                command_buffer[3], command_buffer[4],
+                                command_buffer[5], command_buffer[6]);
 #endif
 }
 
-void stepper_move_to(){
+void stepper_move_to() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
-    // position MSB = command_buffer[1]
-    // position MSB-1 = command_buffer[2]
-    // position MSB-2 = command_buffer[3]
-    // position LSB = command_buffer[4]
+  // motor_id = command_buffer[0]
+  // position MSB = command_buffer[1]
+  // position MSB-1 = command_buffer[2]
+  // position MSB-2 = command_buffer[3]
+  // position LSB = command_buffer[4]
 
-    // convert the 4 position bytes to a long
-    long position = command_buffer[1] << 24;
-    position += command_buffer[2] << 16;
-    position += command_buffer[3] << 8;
-    position += command_buffer[4] ;
+  // convert the 4 position bytes to a long
+  long position = command_buffer[1] << 24;
+  position += command_buffer[2] << 16;
+  position += command_buffer[3] << 8;
+  position += command_buffer[4] ;
 
-    steppers[command_buffer[0]].moveTo(position);
+  steppers[command_buffer[0]].moveTo(position);
 #endif
 }
 
-void stepper_move(){
+void stepper_move() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
-    // position MSB = command_buffer[1]
-    // position MSB-1 = command_buffer[2]
-    // position MSB-2 = command_buffer[3]
-    // position LSB = command_buffer[4]
+  // motor_id = command_buffer[0]
+  // position MSB = command_buffer[1]
+  // position MSB-1 = command_buffer[2]
+  // position MSB-2 = command_buffer[3]
+  // position LSB = command_buffer[4]
 
-    // convert the 4 position bytes to a long
-    long position = command_buffer[1] << 24;
-    position += command_buffer[2] << 16;
-    position += command_buffer[3] << 8;
-    position += command_buffer[4] ;
+  // convert the 4 position bytes to a long
+  long position = command_buffer[1] << 24;
+  position += command_buffer[2] << 16;
+  position += command_buffer[3] << 8;
+  position += command_buffer[4] ;
 
-    steppers[command_buffer[0]].move(position);
+  steppers[command_buffer[0]].move(position);
 #endif
 }
 
-void stepper_run(){
+void stepper_run() {
 #if !defined (__AVR_ATmega328P__)
-    stepper_run_modes[command_buffer[0]] = STEPPER_RUN;
+  stepper_run_modes[command_buffer[0]] = STEPPER_RUN;
 #endif
 }
 
-void stepper_run_speed(){
-    // motor_id = command_buffer[0]
+void stepper_run_speed() {
+  // motor_id = command_buffer[0]
 #if !defined (__AVR_ATmega328P__)
 
-    stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED;
+  stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED;
 #endif
 }
 
-void stepper_set_max_speed(){
+void stepper_set_max_speed() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
-    // speed_msb = command_buffer[1]
-    // speed_lsb = command_buffer[2]
+  // motor_id = command_buffer[0]
+  // speed_msb = command_buffer[1]
+  // speed_lsb = command_buffer[2]
 
-    float max_speed= (float) (command_buffer[1] << 8 + command_buffer[2]);
-    steppers[command_buffer[0]].setMaxSpeed(max_speed);
+  float max_speed = (float) (command_buffer[1] << 8 + command_buffer[2]);
+  steppers[command_buffer[0]].setMaxSpeed(max_speed);
 #endif
 }
 
-void stepper_set_acceleration(){
+void stepper_set_acceleration() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
-    // accel_msb = command_buffer[1]
-    // accel = command_buffer[2]
+  // motor_id = command_buffer[0]
+  // accel_msb = command_buffer[1]
+  // accel = command_buffer[2]
 
-    float acceleration = (float) (command_buffer[1] << 8 + command_buffer[2]);
-    steppers[command_buffer[0]].setAcceleration(acceleration);
+  float acceleration = (float) (command_buffer[1] << 8 + command_buffer[2]);
+  steppers[command_buffer[0]].setAcceleration(acceleration);
 #endif
 }
 
-void stepper_set_speed(){
+void stepper_set_speed() {
 
-    // motor_id = command_buffer[0]
-    // speed_msb = command_buffer[1]
-    // speed_lsb = command_buffer[2]
+  // motor_id = command_buffer[0]
+  // speed_msb = command_buffer[1]
+  // speed_lsb = command_buffer[2]
 #if !defined (__AVR_ATmega328P__)
 
-    float speed= (float) (command_buffer[1] << 8 + command_buffer[2]);
-    steppers[command_buffer[0]].setSpeed(speed);
+  float speed = (float) (command_buffer[1] << 8 + command_buffer[2]);
+  steppers[command_buffer[0]].setSpeed(speed);
 #endif
 }
 
 void stepper_distance_to_go() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
+  // motor_id = command_buffer[0]
 
-    // report = STEPPER_DISTANCE_TO_GO, motor_id, distance(8 bytes)
-
-
-
-    byte report_message[7] = {6, STEPPER_DISTANCE_TO_GO, command_buffer[0]};
-
-    long dtg = steppers[command_buffer[0]].distanceToGo();
+  // report = STEPPER_DISTANCE_TO_GO, motor_id, distance(8 bytes)
 
 
-    report_message[3] = (byte) ((dtg & 0xFF000000) >> 24);
-    report_message[4] = (byte) ((dtg & 0x00FF0000) >> 16);
-    report_message[5] = (byte) ((dtg & 0x0000FF00) >> 8);
-    report_message[6] = (byte) ((dtg & 0x000000FF));
 
-    // motor_id = command_buffer[0]
-    Serial.write(report_message, 7);
+  byte report_message[7] = {6, STEPPER_DISTANCE_TO_GO, command_buffer[0]};
+
+  long dtg = steppers[command_buffer[0]].distanceToGo();
+
+
+  report_message[3] = (byte) ((dtg & 0xFF000000) >> 24);
+  report_message[4] = (byte) ((dtg & 0x00FF0000) >> 16);
+  report_message[5] = (byte) ((dtg & 0x0000FF00) >> 8);
+  report_message[6] = (byte) ((dtg & 0x000000FF));
+
+  // motor_id = command_buffer[0]
+  Serial.write(report_message, 7);
 #endif
 }
 
 void stepper_target_position() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
+  // motor_id = command_buffer[0]
 
-    // report = STEPPER_TARGET_POSITION, motor_id, distance(8 bytes)
-
-
-
-    byte report_message[7] = {6, STEPPER_TARGET_POSITION, command_buffer[0]};
-
-    long target = steppers[command_buffer[0]].targetPosition();
+  // report = STEPPER_TARGET_POSITION, motor_id, distance(8 bytes)
 
 
-    report_message[3] = (byte) ((target & 0xFF000000) >> 24);
-    report_message[4] = (byte) ((target & 0x00FF0000) >> 16);
-    report_message[5] = (byte) ((target & 0x0000FF00) >> 8);
-    report_message[6] = (byte) ((target & 0x000000FF));
 
-    // motor_id = command_buffer[0]
-    Serial.write(report_message, 7);
+  byte report_message[7] = {6, STEPPER_TARGET_POSITION, command_buffer[0]};
+
+  long target = steppers[command_buffer[0]].targetPosition();
+
+
+  report_message[3] = (byte) ((target & 0xFF000000) >> 24);
+  report_message[4] = (byte) ((target & 0x00FF0000) >> 16);
+  report_message[5] = (byte) ((target & 0x0000FF00) >> 8);
+  report_message[6] = (byte) ((target & 0x000000FF));
+
+  // motor_id = command_buffer[0]
+  Serial.write(report_message, 7);
 #endif
 }
 
 void stepper_current_position() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
+  // motor_id = command_buffer[0]
 
-    // report = STEPPER_CURRENT_POSITION, motor_id, distance(8 bytes)
-
-
-
-    byte report_message[7] = {6, STEPPER_CURRENT_POSITION, command_buffer[0]};
-
-    long position = steppers[command_buffer[0]].targetPosition();
+  // report = STEPPER_CURRENT_POSITION, motor_id, distance(8 bytes)
 
 
-    report_message[3] = (byte) ((position & 0xFF000000) >> 24);
-    report_message[4] = (byte) ((position & 0x00FF0000) >> 16);
-    report_message[5] = (byte) ((position & 0x0000FF00) >> 8);
-    report_message[6] = (byte) ((position & 0x000000FF));
 
-    // motor_id = command_buffer[0]
-    Serial.write(report_message, 7);
+  byte report_message[7] = {6, STEPPER_CURRENT_POSITION, command_buffer[0]};
+
+  long position = steppers[command_buffer[0]].targetPosition();
+
+
+  report_message[3] = (byte) ((position & 0xFF000000) >> 24);
+  report_message[4] = (byte) ((position & 0x00FF0000) >> 16);
+  report_message[5] = (byte) ((position & 0x0000FF00) >> 8);
+  report_message[6] = (byte) ((position & 0x000000FF));
+
+  // motor_id = command_buffer[0]
+  Serial.write(report_message, 7);
 #endif
 }
 
-void stepper_set_current_position(){
+void stepper_set_current_position() {
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
-    // position MSB = command_buffer[1]
-    // position MSB-1 = command_buffer[2]
-    // position MSB-2 = command_buffer[3]
-    // position LSB = command_buffer[4]
+  // motor_id = command_buffer[0]
+  // position MSB = command_buffer[1]
+  // position MSB-1 = command_buffer[2]
+  // position MSB-2 = command_buffer[3]
+  // position LSB = command_buffer[4]
 
-    // convert the 4 position bytes to a long
-    long position = command_buffer[1] << 24;
-    position += command_buffer[2] << 16;
-    position += command_buffer[3] << 8;
-    position += command_buffer[4] ;
+  // convert the 4 position bytes to a long
+  long position = command_buffer[1] << 24;
+  position += command_buffer[2] << 16;
+  position += command_buffer[3] << 8;
+  position += command_buffer[4] ;
 
-    steppers[command_buffer[0]].setCurrentPosition(position);
+  steppers[command_buffer[0]].setCurrentPosition(position);
 #endif
 }
 
-void stepper_run_speed_to_position(){
+void stepper_run_speed_to_position() {
 #if !defined (__AVR_ATmega328P__)
-    stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
-
-#endif
-}
-
-void stepper_stop(){
-#if !defined (__AVR_ATmega328P__)
-
-    steppers[command_buffer[0]].stop();
-    steppers[command_buffer[0]].disableOutputs();
-    stepper_run_modes[command_buffer[0]] = STEPPER_STOP;
-
+  stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
 
 #endif
 }
 
-void stepper_disable_outputs(){
+void stepper_stop() {
 #if !defined (__AVR_ATmega328P__)
 
-    steppers[command_buffer[0]].disableOutputs();
+  steppers[command_buffer[0]].stop();
+  steppers[command_buffer[0]].disableOutputs();
+  stepper_run_modes[command_buffer[0]] = STEPPER_STOP;
+
+
 #endif
 }
 
-void stepper_enable_outputs(){
+void stepper_disable_outputs() {
 #if !defined (__AVR_ATmega328P__)
 
-    steppers[command_buffer[0]].enableOutputs();
+  steppers[command_buffer[0]].disableOutputs();
 #endif
 }
 
-void stepper_set_minimum_pulse_width(){
+void stepper_enable_outputs() {
 #if !defined (__AVR_ATmega328P__)
 
-    unsigned int pulse_width = command_buffer[1] << 8 + command_buffer[2];
-    steppers[command_buffer[0]].setMinPulseWidth(pulse_width);
+  steppers[command_buffer[0]].enableOutputs();
 #endif
 }
 
-void stepper_set_enable_pin(){
+void stepper_set_minimum_pulse_width() {
 #if !defined (__AVR_ATmega328P__)
 
-    steppers[command_buffer[0]].setEnablePin((uint8_t) command_buffer[1]);
+  unsigned int pulse_width = command_buffer[1] << 8 + command_buffer[2];
+  steppers[command_buffer[0]].setMinPulseWidth(pulse_width);
 #endif
 }
 
-void stepper_set_3_pins_inverted(){
+void stepper_set_enable_pin() {
 #if !defined (__AVR_ATmega328P__)
 
-    // command_buffer[1] = directionInvert
-    // command_buffer[2] = stepInvert
-    // command_buffer[3] = enableInvert
-    steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
-                                                (bool) command_buffer[2],
-                                                (bool) command_buffer[3]);
+  steppers[command_buffer[0]].setEnablePin((uint8_t) command_buffer[1]);
 #endif
 }
 
-void stepper_set_4_pins_inverted(){
-    // command_buffer[1] = pin1
-    // command_buffer[2] = pin2
-    // command_buffer[3] = pin3
-    // command_buffer[4] = pin4
-    // command_buffer[5] = enable
+void stepper_set_3_pins_inverted() {
 #if !defined (__AVR_ATmega328P__)
 
-    steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
-                                                (bool) command_buffer[2],
-                                                (bool) command_buffer[3],
-                                                (bool) command_buffer[4],
-                                                (bool) command_buffer[5]);
+  // command_buffer[1] = directionInvert
+  // command_buffer[2] = stepInvert
+  // command_buffer[3] = enableInvert
+  steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
+      (bool) command_buffer[2],
+      (bool) command_buffer[3]);
 #endif
 }
 
-void stepper_is_running(){
+void stepper_set_4_pins_inverted() {
+  // command_buffer[1] = pin1
+  // command_buffer[2] = pin2
+  // command_buffer[3] = pin3
+  // command_buffer[4] = pin4
+  // command_buffer[5] = enable
 #if !defined (__AVR_ATmega328P__)
 
-    // motor_id = command_buffer[0]
+  steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
+      (bool) command_buffer[2],
+      (bool) command_buffer[3],
+      (bool) command_buffer[4],
+      (bool) command_buffer[5]);
+#endif
+}
 
-    // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
+void stepper_is_running() {
+#if !defined (__AVR_ATmega328P__)
 
-    byte report_message[3] = {2, STEPPER_RUNNING_REPORT, command_buffer[0]};
+  // motor_id = command_buffer[0]
 
-    report_message[2]  = steppers[command_buffer[0]].isRunning();
+  // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
 
-    Serial.write(report_message, 3);
+  byte report_message[3] = {2, STEPPER_RUNNING_REPORT, command_buffer[0]};
+
+  report_message[2]  = steppers[command_buffer[0]].isRunning();
+
+  Serial.write(report_message, 3);
 #endif
 
 }
 
 // stop all reports from being generated
 
-void stepper_add_multi_stepper(){
+void stepper_add_multi_stepper() {
 #if !defined (__AVR_ATmega328P__)
 
-    // command_buffer[0] = number of motors
-    for(int i = 1; i <= command_buffer[0]; i++){
-        multi_steppers.addStepper(steppers[command_buffer[i]]);
-    }
+  // command_buffer[0] = number of motors
+  for (int i = 1; i <= command_buffer[0]; i++) {
+    multi_steppers.addStepper(steppers[command_buffer[i]]);
+  }
 #endif
 }
 
-void stepper_multi_run(){
+void stepper_multi_run() {
 #if !defined (__AVR_ATmega328P__)
 
-    multi_steppers.run();
+  multi_steppers.run();
 #endif
 }
 
-void stepper_multi_move_to(){
+void stepper_multi_move_to() {
 #if !defined (__AVR_ATmega328P__)
 
-    // create an array of positions
-    // command_buffer[0] = number of entries
-    int num_values = command_buffer[0];
-    long positions[num_values];
-    long new_position;
-    int message_value_index = 1;
-    for(int i = 0; i < num_values; i++){
-        new_position = 0;
-        // convert the 4 position bytes to a long
-        new_position = command_buffer[message_value_index++] << 24;
-        new_position += command_buffer[message_value_index] << 16;
-        new_position += command_buffer[message_value_index] << 8;
-        new_position += command_buffer[message_value_index] ;
-    }
-    multi_steppers.moveTo(positions);
+  // create an array of positions
+  // command_buffer[0] = number of entries
+  int num_values = command_buffer[0];
+  long positions[num_values];
+  long new_position;
+  int message_value_index = 1;
+  for (int i = 0; i < num_values; i++) {
+    new_position = 0;
+    // convert the 4 position bytes to a long
+    new_position = command_buffer[message_value_index++] << 24;
+    new_position += command_buffer[message_value_index] << 16;
+    new_position += command_buffer[message_value_index] << 8;
+    new_position += command_buffer[message_value_index] ;
+  }
+  multi_steppers.moveTo(positions);
 #endif
 }
 
@@ -1795,36 +1796,42 @@ void init_pin_structures() {
   }
 }
 
-void run_steppers(){
-    for( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++){
-        if(stepper_run_modes[i] == STEPPER_STOP){
-            continue;
-        }
-        else{
-            if (steppers[i].distanceToGo() != 0){
-                steppers[i].enableOutputs();
-                switch(stepper_run_modes[i]){
-                    case STEPPER_RUN:
-                        steppers[i].run();
-                        break;
-                    case STEPPER_RUN_SPEED:
-                        steppers[i].runSpeed();
-                        break;
-                    case STEPPER_RUN_SPEED_TO_POSITION:
-                        steppers[i].runSpeedToPosition();
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
+void run_steppers() {
+  boolean running;
+
+  for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
+    if (stepper_run_modes[i] == STEPPER_STOP) {
+      continue;
     }
+    else {
+      steppers[i].enableOutputs();
+      switch (stepper_run_modes[i]) {
+        case STEPPER_RUN:
+          steppers[i].run();
+          break;
+        case STEPPER_RUN_SPEED:
+          steppers[i].runSpeed();
+          break;
+        case STEPPER_RUN_SPEED_TO_POSITION:
+          steppers[i].runSpeedToPosition();
+          break;
+        default:
+          break;
+      }
+    }
+
+    running = steppers[i].isRunning();
+    if (!running) {
+      byte report_message[2] = {STEPPER_RUN_COMPLETE_REPORT, i};
+      Serial.write(report_message, 2);
+    }
+  }
 }
 
 void setup()
 {
   init_pin_structures();
-  for( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++){
+  for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
     stepper_run_modes[i] = 0 ;
   }
   Serial.begin(115200);
