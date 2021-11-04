@@ -159,6 +159,10 @@ extern void stepper_multi_move_to();
 
 extern void stepper_multi_run();
 
+extern void stepper_set_enable_pin();
+
+extern void stepper_is_running();
+
 // features
 //#define ONEWIRE 1
 //#define DHT 2
@@ -314,17 +318,19 @@ command_descriptor command_table[] =
   {&stepper_set_max_speed},
   {&stepper_set_acceleration},
   {&stepper_set_speed},
-  {&stepper_distance_to_go},
-  (&stepper_target_position),
-  (&stepper_current_position),
   (&stepper_set_current_position),
   (&stepper_run_speed_to_position),
   (&stepper_stop),
-  (&stepper_enable_outputs),
   (&stepper_disable_outputs),
+  (&stepper_enable_outputs),
   (&stepper_set_minimum_pulse_width),
+  (&stepper_set_enable_pin),
+  //  {&stepper_distance_to_go},
+  //  (&stepper_target_position),
+  //  (&stepper_current_position),
   (&stepper_set_3_pins_inverted),
   (&stepper_set_4_pins_inverted),
+  (&stepper_is_running),
   {&stepper_add_multi_stepper},
   (&stepper_multi_move_to),
   (&stepper_multi_run)
@@ -1205,7 +1211,7 @@ void stepper_set_max_speed() {
   // speed_msb = command_buffer[1]
   // speed_lsb = command_buffer[2]
 
-  float max_speed = (float) (command_buffer[1] << 8 + command_buffer[2]);
+  float max_speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
   steppers[command_buffer[0]].setMaxSpeed(max_speed);
 #endif
 }
@@ -1217,7 +1223,7 @@ void stepper_set_acceleration() {
   // accel_msb = command_buffer[1]
   // accel = command_buffer[2]
 
-  float acceleration = (float) (command_buffer[1] << 8 + command_buffer[2]);
+  float acceleration = (float) ((command_buffer[1] << 8) + command_buffer[2]);
   steppers[command_buffer[0]].setAcceleration(acceleration);
 #endif
 }
@@ -1229,7 +1235,7 @@ void stepper_set_speed() {
   // speed_lsb = command_buffer[2]
 #if !defined (__AVR_ATmega328P__)
 
-  float speed = (float) (command_buffer[1] << 8 + command_buffer[2]);
+  float speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
   steppers[command_buffer[0]].setSpeed(speed);
 #endif
 }
@@ -1360,7 +1366,7 @@ void stepper_enable_outputs() {
 void stepper_set_minimum_pulse_width() {
 #if !defined (__AVR_ATmega328P__)
 
-  unsigned int pulse_width = command_buffer[1] << 8 + command_buffer[2];
+  unsigned int pulse_width = (command_buffer[1] << 8) + command_buffer[2];
   steppers[command_buffer[0]].setMinPulseWidth(pulse_width);
 #endif
 }
@@ -1798,6 +1804,9 @@ void init_pin_structures() {
 
 void run_steppers() {
   boolean running;
+  long current_position ;
+  long target_position;
+
 
   for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
     if (stepper_run_modes[i] == STEPPER_STOP) {
@@ -1808,50 +1817,56 @@ void run_steppers() {
       switch (stepper_run_modes[i]) {
         case STEPPER_RUN:
           steppers[i].run();
+          running = steppers[i].isRunning();
+          if (!running) {
+            byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, i};
+            Serial.write(report_message, 3);
+            stepper_run_modes[i] = STEPPER_STOP;
+          }
           break;
         case STEPPER_RUN_SPEED:
           steppers[i].runSpeed();
           break;
         case STEPPER_RUN_SPEED_TO_POSITION:
-          steppers[i].runSpeedToPosition();
+          running = steppers[i].runSpeedToPosition();
+          target_position = steppers[i].targetPosition();
+          if (target_position == steppers[i].currentPosition()) {
+            byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, i};
+            Serial.write(report_message, 3);
+            stepper_run_modes[i] = STEPPER_STOP;
+
+          }
           break;
         default:
           break;
       }
     }
+  }
 
-    running = steppers[i].isRunning();
-    if (!running) {
-      byte report_message[2] = {STEPPER_RUN_COMPLETE_REPORT, i};
-      Serial.write(report_message, 2);
+  void setup()
+  {
+    init_pin_structures();
+    for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
+      stepper_run_modes[i] = STEPPER_STOP ;
     }
+    Serial.begin(115200);
   }
-}
 
-void setup()
-{
-  init_pin_structures();
-  for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
-    stepper_run_modes[i] = 0 ;
-  }
-  Serial.begin(115200);
-}
+  void loop()
+  {
+    // keep processing incoming commands
+    get_next_command();
 
-void loop()
-{
-  // keep processing incoming commands
-  get_next_command();
-
-  if (!stop_reports)
-  { // stop reporting
-    scan_digital_inputs();
-    scan_analog_inputs();
-    scan_sonars();
+    if (!stop_reports)
+    { // stop reporting
+      scan_digital_inputs();
+      scan_analog_inputs();
+      scan_sonars();
 #ifdef DHT_ENABLED
-    scan_dhts();
+      scan_dhts();
 #endif
 #if !defined (__AVR_ATmega328P__)
-    run_steppers();
+      run_steppers();
 #endif
+    }
   }
-}
