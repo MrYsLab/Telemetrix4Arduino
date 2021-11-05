@@ -163,6 +163,8 @@ extern void stepper_set_enable_pin();
 
 extern void stepper_is_running();
 
+extern void stepper_get_current_position();
+
 // features
 //#define ONEWIRE 1
 //#define DHT 2
@@ -261,6 +263,7 @@ OneWire *ow = NULL;
 #define STEPPER_ADD_MULTI_STEPPER 51
 #define STEPPER_MULTI_MOVE_TO 52
 #define STEPPER_MULTI_RUN 53
+#define STEPPER_GET_CURRENT_POSITION 54
 
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
@@ -325,9 +328,9 @@ command_descriptor command_table[] =
   (&stepper_enable_outputs),
   (&stepper_set_minimum_pulse_width),
   (&stepper_set_enable_pin),
-  //  {&stepper_distance_to_go},
-  //  (&stepper_target_position),
-  //  (&stepper_current_position),
+//  {&stepper_distance_to_go},
+//  (&stepper_target_position),
+//  (&stepper_current_position),
   (&stepper_set_3_pins_inverted),
   (&stepper_set_4_pins_inverted),
   (&stepper_is_running),
@@ -1842,31 +1845,32 @@ void run_steppers() {
       }
     }
   }
+}
 
-  void setup()
-  {
-    init_pin_structures();
-    for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
-      stepper_run_modes[i] = STEPPER_STOP ;
-    }
-    Serial.begin(115200);
+void setup()
+{
+  init_pin_structures();
+  for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
+    stepper_run_modes[i] = STEPPER_STOP ;
   }
+  Serial.begin(115200);
+}
 
-  void loop()
-  {
-    // keep processing incoming commands
-    get_next_command();
+void loop()
+{
+  // keep processing incoming commands
+  get_next_command();
 
-    if (!stop_reports)
-    { // stop reporting
-      scan_digital_inputs();
-      scan_analog_inputs();
-      scan_sonars();
+  if (!stop_reports)
+  { // stop reporting
+    scan_digital_inputs();
+    scan_analog_inputs();
+    scan_sonars();
 #ifdef DHT_ENABLED
-      scan_dhts();
+    scan_dhts();
 #endif
 #if !defined (__AVR_ATmega328P__)
-      run_steppers();
+    run_steppers();
 #endif
-    }
   }
+}
