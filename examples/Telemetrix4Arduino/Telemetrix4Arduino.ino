@@ -131,11 +131,11 @@ extern void stepper_set_acceleration();
 
 extern void stepper_set_speed();
 
-extern void stepper_distance_to_go();
+extern void stepper_get_distance_to_go();
 
-extern void stepper_target_position();
+extern void stepper_get_target_position();
 
-extern void stepper_current_position();
+extern void stepper_get_current_position();
 
 extern void stepper_set_current_position();
 
@@ -163,7 +163,6 @@ extern void stepper_set_enable_pin();
 
 extern void stepper_is_running();
 
-extern void stepper_get_current_position();
 
 // features
 //#define ONEWIRE 1
@@ -264,6 +263,8 @@ OneWire *ow = NULL;
 #define STEPPER_MULTI_MOVE_TO 52
 #define STEPPER_MULTI_RUN 53
 #define STEPPER_GET_CURRENT_POSITION 54
+#define STEPPER_GET_DISTANCE_TO_GO 55
+#define STEPPER_GET_TARGET_POSITION 56
 
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
@@ -328,15 +329,15 @@ command_descriptor command_table[] =
   (&stepper_enable_outputs),
   (&stepper_set_minimum_pulse_width),
   (&stepper_set_enable_pin),
-//  {&stepper_distance_to_go},
-//  (&stepper_target_position),
-//  (&stepper_current_position),
   (&stepper_set_3_pins_inverted),
   (&stepper_set_4_pins_inverted),
   (&stepper_is_running),
   {&stepper_add_multi_stepper},
   (&stepper_multi_move_to),
-  (&stepper_multi_run)
+  (&stepper_multi_run),
+  (&stepper_get_current_position),
+  {&stepper_get_distance_to_go},
+  (&stepper_get_target_position),
 };
 
 // Input pin reporting control sub commands (modify_reporting)
@@ -1243,7 +1244,7 @@ void stepper_set_speed() {
 #endif
 }
 
-void stepper_distance_to_go() {
+void stepper_get_distance_to_go() {
 #if !defined (__AVR_ATmega328P__)
 
   // motor_id = command_buffer[0]
@@ -1267,7 +1268,7 @@ void stepper_distance_to_go() {
 #endif
 }
 
-void stepper_target_position() {
+void stepper_get_target_position() {
 #if !defined (__AVR_ATmega328P__)
 
   // motor_id = command_buffer[0]
@@ -1291,7 +1292,7 @@ void stepper_target_position() {
 #endif
 }
 
-void stepper_current_position() {
+void stepper_get_current_position() {
 #if !defined (__AVR_ATmega328P__)
 
   // motor_id = command_buffer[0]
