@@ -198,6 +198,7 @@ extern void get_features();
 #define STEPPERS_FEATURE 0x04
 #define SPI_FEATURE 0x08
 #define SERVO_FEATURE 0x10
+#define SONAR_FEATURE 0x20
 
 // a byte to hold the list of enabled features
 uint8_t features = 0;
@@ -1930,6 +1931,10 @@ void setup()
 
 #ifdef SERVO_ENABLED
   features |= SERVO_FEATURE;
+#endif
+
+#ifdef SONAR_ENABLED
+  features |= SONAR_FEATURE;
 #endif
 
   init_pin_structures();
