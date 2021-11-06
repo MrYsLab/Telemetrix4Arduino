@@ -15,6 +15,15 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+// This value must be the same as specified when instantiating the
+// telemetrix client. The client defaults to a value of 1.
+// This value is used for the client to auto-discover and to
+// connect to a specific board regardless of the current com port
+// it is currently connected to.
+#define ARDUINO_ID 1
+
+// To disable a feature, comment out the desired enabling define or defines
+
 // This will allow SPI support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
 #define SPI_ENABLED 1
@@ -26,6 +35,22 @@
 // This will allow DHT support to be compiled into the sketch.
 // Comment this out to save sketch space for the UNO
 #define DHT_ENABLED 1
+
+// This will allow sonar support to be compiled into the sketch.
+// Comment this out to save sketch space for the UNO
+#define SONAR_ENABLED 1
+
+// This will allow servo support to be compiled into the sketch.
+// Comment this out to save sketch space for the UNO
+#define SERVO_ENABLED 1
+
+// This will allow stepper support to be compiled into the sketch.
+// Comment this out to save sketch space for the UNO
+#define STEPPERS_ENABLED 1
+
+
+
+
 
 
 #include <Arduino.h>
@@ -40,12 +65,12 @@
 #include <MultiStepper.h>
 
 
+
+
 // To provide a forward reference for the command functions, they are defined
 // at the top of this file.
 // If you add a new command, you must add the command handler
 // here as well.
-
-
 
 extern void serial_loopback();
 
@@ -163,17 +188,19 @@ extern void stepper_set_enable_pin();
 
 extern void stepper_is_running();
 
+extern void get_features();
+
 
 // features
-//#define ONEWIRE 1
-//#define DHT 2
-//#define STEPPERS 3
+// comment out the define to disable a feature
+#define ONEWIRE_FEATURE 0x01
+#define DHT_FEATURE 0x02
+#define STEPPERS_FEATURE 0x04
+#define SPI_FEATURE 0x08
+#define SERVO_FEATURE 0x10
 
-// flags to report enabled features
-bool feature_one_wire = true;
-bool feature_dht = true;
-bool feature_steppers = true;
-
+// a byte to hold the list of enabled features
+uint8_t features = 0;
 
 
 // uncomment out the next line to create a 2nd i2c port
@@ -195,15 +222,6 @@ TwoWire *current_i2c_port;
 OneWire *ow = NULL;
 #endif
 
-
-
-
-// This value must be the same as specified when instantiating the
-// telemetrix client. The client defaults to a value of 1.
-// This value is used for the client to auto-discover and to
-// connect to a specific board regardless of the current com port
-// it is currently connected to.
-#define ARDUINO_ID 1
 
 // Commands -received by this sketch
 // Add commands retaining the sequential numbering.
@@ -265,6 +283,7 @@ OneWire *ow = NULL;
 #define STEPPER_GET_CURRENT_POSITION 54
 #define STEPPER_GET_DISTANCE_TO_GO 55
 #define STEPPER_GET_TARGET_POSITION 56
+#define GET_FEATURES 57
 
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
@@ -338,6 +357,7 @@ command_descriptor command_table[] =
   (&stepper_get_current_position),
   {&stepper_get_distance_to_go},
   (&stepper_get_target_position),
+  (&get_features),
 };
 
 // Input pin reporting control sub commands (modify_reporting)
@@ -381,6 +401,7 @@ command_descriptor command_table[] =
 #define STEPPER_CURRENT_POSITION 17
 #define STEPPER_RUNNING_REPORT 18
 #define STEPPER_RUN_COMPLETE_REPORT 19
+#define FEATURES 20
 
 
 #define DEBUG_PRINT 99
@@ -483,15 +504,18 @@ unsigned long previous_millis; // for analog input loop
 uint8_t analog_sampling_interval = 19;
 
 // servo management
+#ifdef SERVO_ENABLED
 Servo servos[MAX_SERVOS];
 
 // this array allows us to retrieve the servo object
 // associated with a specific pin number
 byte pin_to_servo_index_map[MAX_SERVOS];
+#endif
 
 // HC-SR04 Sonar Management
 #define MAX_SONARS 6
 
+#ifdef SONAR_ENABLED
 struct Sonar
 {
   uint8_t trigger_pin;
@@ -506,11 +530,15 @@ byte sonars_index = 0; // index into sonars struct
 
 // used for scanning the sonar devices.
 byte last_sonar_visited = 0;
+#endif //SONAR_ENABLED
 
 unsigned long sonar_current_millis;  // for analog input loop
 unsigned long sonar_previous_millis; // for analog input loop
+
+#ifdef SONAR_ENABLED
 uint8_t sonar_scan_interval = 33;    // Milliseconds between sensor pings
 // (29ms is about the min to avoid = 19;
+#endif
 
 // DHT Management
 #define MAX_DHTS 6                // max number of devices
@@ -539,7 +567,8 @@ unsigned int dht_scan_interval = 2000; // scan dht's every 2 seconds
 #define MAX_NUMBER_OF_STEPPERS 4
 
 // stepper motor data
-#if !defined (__AVR_ATmega328P__)
+//#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 AccelStepper steppers[MAX_NUMBER_OF_STEPPERS];
 
 MultiStepper multi_steppers;
@@ -689,6 +718,13 @@ void modify_reporting()
   }
 }
 
+// retrieve the features byte
+void get_features() {
+  byte report_message[3] = {2, FEATURES, features};
+  Serial.write(report_message, 3);
+
+}
+
 // Return the firmware version number
 void get_firmware_version()
 {
@@ -713,6 +749,7 @@ void are_you_there()
 // This is a helper function not called directly via the API
 int find_servo()
 {
+#ifdef SERVO_ENABLED
   int index = -1;
   for (int i = 0; i < MAX_SERVOS; i++)
   {
@@ -723,12 +760,13 @@ int find_servo()
     }
   }
   return index;
+#endif
 }
 
 // Associate a pin with a servo
 void servo_attach()
 {
-
+#ifdef SERVO_ENABLED
   byte pin = command_buffer[0];
   int servo_found = -1;
 
@@ -748,11 +786,13 @@ void servo_attach()
     byte report_message[2] = {SERVO_UNAVAILABLE, pin};
     Serial.write(report_message, 2);
   }
+#endif
 }
 
 // set a servo to a given angle
 void servo_write()
 {
+#ifdef SERVO_ENABLED
   byte pin = command_buffer[0];
   int angle = command_buffer[1];
   // find the servo object for the pin
@@ -765,11 +805,13 @@ void servo_write()
       return;
     }
   }
+#endif
 }
 
 // detach a servo and make it available for future use
 void servo_detach()
 {
+#ifdef SERVO_ENABLED
   byte pin = command_buffer[0];
 
   // find the servo object for the pin
@@ -782,6 +824,7 @@ void servo_detach()
       servos[i].detach();
     }
   }
+#endif
 }
 
 /***********************************
@@ -923,11 +966,14 @@ void i2c_write()
 // associate 2 pins as trigger and echo pins for a sonar device
 void sonar_new()
 {
+#ifdef SONAR_ENABLED
+
   // command_buffer[0] = trigger pin,  command_buffer[1] = echo pin
   sonars[sonars_index].usonic = new Ultrasonic((uint8_t)command_buffer[0], (uint8_t)command_buffer[1],
       80000UL);
   sonars[sonars_index].trigger_pin = command_buffer[0];
   sonars_index++;
+#endif
 }
 
 /***********************************
@@ -1139,7 +1185,8 @@ void onewire_crc8() {
 // Stepper Motor supported
 // Stepper Motor supported
 void set_pin_mode_stepper() {
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 
   // motor_id = command_buffer[0]
   // interface = command_buffer[1]
@@ -1157,7 +1204,8 @@ void set_pin_mode_stepper() {
 }
 
 void stepper_move_to() {
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
@@ -1176,7 +1224,8 @@ void stepper_move_to() {
 }
 
 void stepper_move() {
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
@@ -1195,21 +1244,24 @@ void stepper_move() {
 }
 
 void stepper_run() {
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN;
 #endif
 }
 
 void stepper_run_speed() {
   // motor_id = command_buffer[0]
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED;
 #endif
 }
 
 void stepper_set_max_speed() {
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 
   // motor_id = command_buffer[0]
   // speed_msb = command_buffer[1]
@@ -1221,7 +1273,8 @@ void stepper_set_max_speed() {
 }
 
 void stepper_set_acceleration() {
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 
   // motor_id = command_buffer[0]
   // accel_msb = command_buffer[1]
@@ -1237,7 +1290,8 @@ void stepper_set_speed() {
   // motor_id = command_buffer[0]
   // speed_msb = command_buffer[1]
   // speed_lsb = command_buffer[2]
-#if !defined (__AVR_ATmega328P__)
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
 
   float speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
   steppers[command_buffer[0]].setSpeed(speed);
@@ -1245,8 +1299,8 @@ void stepper_set_speed() {
 }
 
 void stepper_get_distance_to_go() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // motor_id = command_buffer[0]
 
   // report = STEPPER_DISTANCE_TO_GO, motor_id, distance(8 bytes)
@@ -1269,8 +1323,8 @@ void stepper_get_distance_to_go() {
 }
 
 void stepper_get_target_position() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // motor_id = command_buffer[0]
 
   // report = STEPPER_TARGET_POSITION, motor_id, distance(8 bytes)
@@ -1293,8 +1347,8 @@ void stepper_get_target_position() {
 }
 
 void stepper_get_current_position() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // motor_id = command_buffer[0]
 
   // report = STEPPER_CURRENT_POSITION, motor_id, distance(8 bytes)
@@ -1317,8 +1371,8 @@ void stepper_get_current_position() {
 }
 
 void stepper_set_current_position() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
   // position MSB-1 = command_buffer[2]
@@ -1336,15 +1390,15 @@ void stepper_set_current_position() {
 }
 
 void stepper_run_speed_to_position() {
-#if !defined (__AVR_ATmega328P__)
-  stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE  stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
 
 #endif
 }
 
 void stepper_stop() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   steppers[command_buffer[0]].stop();
   steppers[command_buffer[0]].disableOutputs();
   stepper_run_modes[command_buffer[0]] = STEPPER_STOP;
@@ -1354,37 +1408,37 @@ void stepper_stop() {
 }
 
 void stepper_disable_outputs() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   steppers[command_buffer[0]].disableOutputs();
 #endif
 }
 
 void stepper_enable_outputs() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   steppers[command_buffer[0]].enableOutputs();
 #endif
 }
 
 void stepper_set_minimum_pulse_width() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   unsigned int pulse_width = (command_buffer[1] << 8) + command_buffer[2];
   steppers[command_buffer[0]].setMinPulseWidth(pulse_width);
 #endif
 }
 
 void stepper_set_enable_pin() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   steppers[command_buffer[0]].setEnablePin((uint8_t) command_buffer[1]);
 #endif
 }
 
 void stepper_set_3_pins_inverted() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // command_buffer[1] = directionInvert
   // command_buffer[2] = stepInvert
   // command_buffer[3] = enableInvert
@@ -1400,8 +1454,8 @@ void stepper_set_4_pins_inverted() {
   // command_buffer[3] = pin3
   // command_buffer[4] = pin4
   // command_buffer[5] = enable
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
       (bool) command_buffer[2],
       (bool) command_buffer[3],
@@ -1411,8 +1465,8 @@ void stepper_set_4_pins_inverted() {
 }
 
 void stepper_is_running() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // motor_id = command_buffer[0]
 
   // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
@@ -1429,8 +1483,8 @@ void stepper_is_running() {
 // stop all reports from being generated
 
 void stepper_add_multi_stepper() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // command_buffer[0] = number of motors
   for (int i = 1; i <= command_buffer[0]; i++) {
     multi_steppers.addStepper(steppers[command_buffer[i]]);
@@ -1439,15 +1493,15 @@ void stepper_add_multi_stepper() {
 }
 
 void stepper_multi_run() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   multi_steppers.run();
 #endif
 }
 
 void stepper_multi_move_to() {
-#if !defined (__AVR_ATmega328P__)
-
+  //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE
   // create an array of positions
   // command_buffer[0] = number of entries
   int num_values = command_buffer[0];
@@ -1617,6 +1671,7 @@ void scan_analog_inputs()
 // scan the sonar devices for changes
 void scan_sonars()
 {
+#ifdef SONAR_ENABLED
   unsigned int distance;
 
   if (sonars_index)
@@ -1647,6 +1702,7 @@ void scan_sonars()
       }
     }
   }
+#endif
 }
 
 // scan dht devices for changes
@@ -1754,6 +1810,7 @@ void reset_data() {
   analog_sampling_interval = 19;
 
   // detach any attached servos
+#ifdef SERVO_ENABLED
   for (int i = 0; i < MAX_SERVOS; i++)
   {
     if (servos[i].attached() == true)
@@ -1761,12 +1818,16 @@ void reset_data() {
       servos[i].detach();
     }
   }
+#endif
 
+#ifdef SONAR_ENABLED
   sonars_index = 0; // reset the index into the sonars array
 
   sonar_current_millis = 0;  // for analog input loop
   sonar_previous_millis = 0; // for analog input loop
   sonar_scan_interval = 33;  // Milliseconds between sensor pings
+  memset(sonars, 0, sizeof(sonars));
+#endif
 
 #ifdef DHT_ENABLED
   dht_index = 0; // index into dht array
@@ -1778,7 +1839,7 @@ void reset_data() {
 
   init_pin_structures();
 
-  memset(sonars, 0, sizeof(sonars));
+
 #ifdef DHT_ENABLED
   memset(dhts, 0, sizeof(dhts));
 #endif
@@ -1850,10 +1911,35 @@ void run_steppers() {
 
 void setup()
 {
+  // set up features for enabled features
+#ifdef ONE_WIRE_ENABLED
+  features |= ONEWIRE_FEATURE;
+#endif
+
+#ifdef DHT_ENABLED
+  features |= DHT_FEATURE;
+#endif
+
+#ifdef STEPPERS_ENABLED
+  features |= STEPPERS_FEATURE;
+#endif
+
+#ifdef SPI_ENABLED
+  features |= SPI_FEATURE;
+#endif
+
+#ifdef SERVO_ENABLED
+  features |= SERVO_FEATURE;
+#endif
+
   init_pin_structures();
+#ifdef STEPPERS_ENABLED
+
   for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
     stepper_run_modes[i] = STEPPER_STOP ;
   }
+#endif
+
   Serial.begin(115200);
 }
 
@@ -1866,12 +1952,16 @@ void loop()
   { // stop reporting
     scan_digital_inputs();
     scan_analog_inputs();
+
+#ifdef SONAR_ENABLED
     scan_sonars();
+#endif
+
 #ifdef DHT_ENABLED
     scan_dhts();
 #endif
-#if !defined (__AVR_ATmega328P__)
-    run_steppers();
+    //#if !defined (__AVR_ATmega328P__)
+#ifdef STEPPERS_FEATURE    run_steppers();
 #endif
   }
 }
