@@ -198,7 +198,6 @@ extern void get_features();
 #define STEPPERS_FEATURE 0x04
 #define SPI_FEATURE 0x08
 #define SERVO_FEATURE 0x10
-#define SONAR_FEATURE 0x20
 
 // a byte to hold the list of enabled features
 uint8_t features = 0;
@@ -1472,6 +1471,7 @@ void stepper_is_running() {
 
   // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
 
+
   byte report_message[3] = {2, STEPPER_RUNNING_REPORT, command_buffer[0]};
 
   report_message[2]  = steppers[command_buffer[0]].isRunning();
@@ -1933,10 +1933,6 @@ void setup()
   features |= SERVO_FEATURE;
 #endif
 
-#ifdef SONAR_ENABLED
-  features |= SONAR_FEATURE;
-#endif
-
   init_pin_structures();
 #ifdef STEPPERS_ENABLED
 
@@ -1966,7 +1962,8 @@ void loop()
     scan_dhts();
 #endif
     //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE    run_steppers();
+#ifdef STEPPERS_FEATURE
+    run_steppers();
 #endif
   }
 }
