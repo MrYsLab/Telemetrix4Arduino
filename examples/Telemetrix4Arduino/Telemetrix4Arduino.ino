@@ -62,9 +62,6 @@
 #include <SPI.h>
 #include <OneWire.h>
 #include <AccelStepper.h>
-#include <MultiStepper.h>
-
-
 
 
 // To provide a forward reference for the command functions, they are defined
@@ -178,12 +175,6 @@ extern void stepper_set_3_pins_inverted();
 
 extern void stepper_set_4_pins_inverted();
 
-extern void stepper_add_multi_stepper();
-
-extern void stepper_multi_move_to();
-
-extern void stepper_multi_run();
-
 extern void stepper_set_enable_pin();
 
 extern void stepper_is_running();
@@ -277,13 +268,10 @@ OneWire *ow = NULL;
 #define STEPPER_SET_3_PINS_INVERTED 48
 #define STEPPER_SET_4_PINS_INVERTED 49
 #define STEPPER_IS_RUNNING 50
-#define STEPPER_ADD_MULTI_STEPPER 51
-#define STEPPER_MULTI_MOVE_TO 52
-#define STEPPER_MULTI_RUN 53
-#define STEPPER_GET_CURRENT_POSITION 54
-#define STEPPER_GET_DISTANCE_TO_GO 55
-#define STEPPER_GET_TARGET_POSITION 56
-#define GET_FEATURES 57
+#define STEPPER_GET_CURRENT_POSITION 51
+#define STEPPER_GET_DISTANCE_TO_GO 52
+#define STEPPER_GET_TARGET_POSITION 53
+#define GET_FEATURES 54
 
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
@@ -351,9 +339,6 @@ command_descriptor command_table[] =
   (&stepper_set_3_pins_inverted),
   (&stepper_set_4_pins_inverted),
   (&stepper_is_running),
-  {&stepper_add_multi_stepper},
-  (&stepper_multi_move_to),
-  (&stepper_multi_run),
   (&stepper_get_current_position),
   {&stepper_get_distance_to_go},
   (&stepper_get_target_position),
@@ -569,9 +554,7 @@ unsigned int dht_scan_interval = 2000; // scan dht's every 2 seconds
 // stepper motor data
 //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_FEATURE
-AccelStepper steppers[MAX_NUMBER_OF_STEPPERS];
-
-MultiStepper multi_steppers;
+AccelStepper *steppers[MAX_NUMBER_OF_STEPPERS];
 
 // stepper run modes
 uint8_t stepper_run_modes[MAX_NUMBER_OF_STEPPERS];
@@ -1197,9 +1180,9 @@ void set_pin_mode_stepper() {
   // enable = command_buffer[6]
 
   // instantiate a stepper object and store it in the stepper array
-  steppers[command_buffer[0]] = AccelStepper(command_buffer[1], command_buffer[2],
-                                command_buffer[3], command_buffer[4],
-                                command_buffer[5], command_buffer[6]);
+  steppers[command_buffer[0]] = new AccelStepper(command_buffer[1], command_buffer[2],
+      command_buffer[3], command_buffer[4],
+      command_buffer[5], command_buffer[6]);
 #endif
 }
 
@@ -1219,7 +1202,7 @@ void stepper_move_to() {
   position += command_buffer[3] << 8;
   position += command_buffer[4] ;
 
-  steppers[command_buffer[0]].moveTo(position);
+  steppers[command_buffer[0]]->moveTo(position);
 #endif
 }
 
@@ -1239,7 +1222,7 @@ void stepper_move() {
   position += command_buffer[3] << 8;
   position += command_buffer[4] ;
 
-  steppers[command_buffer[0]].move(position);
+  steppers[command_buffer[0]]->move(position);
 #endif
 }
 
@@ -1268,7 +1251,7 @@ void stepper_set_max_speed() {
   // speed_lsb = command_buffer[2]
 
   float max_speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
-  steppers[command_buffer[0]].setMaxSpeed(max_speed);
+  steppers[command_buffer[0]]->setMaxSpeed(max_speed);
 #endif
 }
 
@@ -1281,7 +1264,7 @@ void stepper_set_acceleration() {
   // accel = command_buffer[2]
 
   float acceleration = (float) ((command_buffer[1] << 8) + command_buffer[2]);
-  steppers[command_buffer[0]].setAcceleration(acceleration);
+  steppers[command_buffer[0]]->setAcceleration(acceleration);
 #endif
 }
 
@@ -1294,7 +1277,7 @@ void stepper_set_speed() {
 #ifdef STEPPERS_FEATURE
 
   float speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
-  steppers[command_buffer[0]].setSpeed(speed);
+  steppers[command_buffer[0]]->setSpeed(speed);
 #endif
 }
 
@@ -1309,7 +1292,7 @@ void stepper_get_distance_to_go() {
 
   byte report_message[7] = {6, STEPPER_DISTANCE_TO_GO, command_buffer[0]};
 
-  long dtg = steppers[command_buffer[0]].distanceToGo();
+  long dtg = steppers[command_buffer[0]]->distanceToGo();
 
 
   report_message[3] = (byte) ((dtg & 0xFF000000) >> 24);
@@ -1333,7 +1316,7 @@ void stepper_get_target_position() {
 
   byte report_message[7] = {6, STEPPER_TARGET_POSITION, command_buffer[0]};
 
-  long target = steppers[command_buffer[0]].targetPosition();
+  long target = steppers[command_buffer[0]]->targetPosition();
 
 
   report_message[3] = (byte) ((target & 0xFF000000) >> 24);
@@ -1357,7 +1340,7 @@ void stepper_get_current_position() {
 
   byte report_message[7] = {6, STEPPER_CURRENT_POSITION, command_buffer[0]};
 
-  long position = steppers[command_buffer[0]].targetPosition();
+  long position = steppers[command_buffer[0]]->targetPosition();
 
 
   report_message[3] = (byte) ((position & 0xFF000000) >> 24);
@@ -1385,13 +1368,14 @@ void stepper_set_current_position() {
   position += command_buffer[3] << 8;
   position += command_buffer[4] ;
 
-  steppers[command_buffer[0]].setCurrentPosition(position);
+  steppers[command_buffer[0]]->setCurrentPosition(position);
 #endif
 }
 
 void stepper_run_speed_to_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE  stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
+#ifdef STEPPERS_FEATURE
+  stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
 
 #endif
 }
@@ -1399,8 +1383,8 @@ void stepper_run_speed_to_position() {
 void stepper_stop() {
   //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_FEATURE
-  steppers[command_buffer[0]].stop();
-  steppers[command_buffer[0]].disableOutputs();
+  steppers[command_buffer[0]]->stop();
+  steppers[command_buffer[0]]->disableOutputs();
   stepper_run_modes[command_buffer[0]] = STEPPER_STOP;
 
 
@@ -1410,14 +1394,14 @@ void stepper_stop() {
 void stepper_disable_outputs() {
   //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_FEATURE
-  steppers[command_buffer[0]].disableOutputs();
+  steppers[command_buffer[0]]->disableOutputs();
 #endif
 }
 
 void stepper_enable_outputs() {
   //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_FEATURE
-  steppers[command_buffer[0]].enableOutputs();
+  steppers[command_buffer[0]]->enableOutputs();
 #endif
 }
 
@@ -1425,14 +1409,14 @@ void stepper_set_minimum_pulse_width() {
   //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_FEATURE
   unsigned int pulse_width = (command_buffer[1] << 8) + command_buffer[2];
-  steppers[command_buffer[0]].setMinPulseWidth(pulse_width);
+  steppers[command_buffer[0]]->setMinPulseWidth(pulse_width);
 #endif
 }
 
 void stepper_set_enable_pin() {
   //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_FEATURE
-  steppers[command_buffer[0]].setEnablePin((uint8_t) command_buffer[1]);
+  steppers[command_buffer[0]]->setEnablePin((uint8_t) command_buffer[1]);
 #endif
 }
 
@@ -1442,7 +1426,7 @@ void stepper_set_3_pins_inverted() {
   // command_buffer[1] = directionInvert
   // command_buffer[2] = stepInvert
   // command_buffer[3] = enableInvert
-  steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
+  steppers[command_buffer[0]]->setPinsInverted((bool) command_buffer[1],
       (bool) command_buffer[2],
       (bool) command_buffer[3]);
 #endif
@@ -1456,7 +1440,7 @@ void stepper_set_4_pins_inverted() {
   // command_buffer[5] = enable
   //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_FEATURE
-  steppers[command_buffer[0]].setPinsInverted((bool) command_buffer[1],
+  steppers[command_buffer[0]]->setPinsInverted((bool) command_buffer[1],
       (bool) command_buffer[2],
       (bool) command_buffer[3],
       (bool) command_buffer[4],
@@ -1474,7 +1458,7 @@ void stepper_is_running() {
 
   byte report_message[3] = {2, STEPPER_RUNNING_REPORT, command_buffer[0]};
 
-  report_message[2]  = steppers[command_buffer[0]].isRunning();
+  report_message[2]  = steppers[command_buffer[0]]->isRunning();
 
   Serial.write(report_message, 3);
 #endif
@@ -1482,44 +1466,6 @@ void stepper_is_running() {
 }
 
 // stop all reports from being generated
-
-void stepper_add_multi_stepper() {
-  //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
-  // command_buffer[0] = number of motors
-  for (int i = 1; i <= command_buffer[0]; i++) {
-    multi_steppers.addStepper(steppers[command_buffer[i]]);
-  }
-#endif
-}
-
-void stepper_multi_run() {
-  //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
-  multi_steppers.run();
-#endif
-}
-
-void stepper_multi_move_to() {
-  //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
-  // create an array of positions
-  // command_buffer[0] = number of entries
-  int num_values = command_buffer[0];
-  long positions[num_values];
-  long new_position;
-  int message_value_index = 1;
-  for (int i = 0; i < num_values; i++) {
-    new_position = 0;
-    // convert the 4 position bytes to a long
-    new_position = command_buffer[message_value_index++] << 24;
-    new_position += command_buffer[message_value_index] << 16;
-    new_position += command_buffer[message_value_index] << 8;
-    new_position += command_buffer[message_value_index] ;
-  }
-  multi_steppers.moveTo(positions);
-#endif
-}
 
 void stop_all_reports()
 {
@@ -1879,11 +1825,11 @@ void run_steppers() {
       continue;
     }
     else {
-      steppers[i].enableOutputs();
+      steppers[i]->enableOutputs();
       switch (stepper_run_modes[i]) {
         case STEPPER_RUN:
-          steppers[i].run();
-          running = steppers[i].isRunning();
+          steppers[i]->run();
+          running = steppers[i]->isRunning();
           if (!running) {
             byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, i};
             Serial.write(report_message, 3);
@@ -1891,12 +1837,12 @@ void run_steppers() {
           }
           break;
         case STEPPER_RUN_SPEED:
-          steppers[i].runSpeed();
+          steppers[i]->runSpeed();
           break;
         case STEPPER_RUN_SPEED_TO_POSITION:
-          running = steppers[i].runSpeedToPosition();
-          target_position = steppers[i].targetPosition();
-          if (target_position == steppers[i].currentPosition()) {
+          running = steppers[i]->runSpeedToPosition();
+          target_position = steppers[i]->targetPosition();
+          if (target_position == steppers[i]->currentPosition()) {
             byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, i};
             Serial.write(report_message, 3);
             stepper_run_modes[i] = STEPPER_STOP;
