@@ -15,12 +15,50 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+
+#include <Arduino.h>
+#include "Telemetrix4Arduino.h"
+#include <Servo.h>
+#include <Ultrasonic.h>
+#include <Wire.h>
+#include <DHTStable.h>
+#include <SPI.h>
+#include <OneWire.h>
+#include <AccelStepper.h>
+
+// This file is rather large, so it has been rearranged in logical sections.
+// Here is the list of sections to help make it easier to locate items of interest,
+// and aid when adding new features.
+
+// 1. Arduino ID
+// 2. Feature Enabling Defines
+// 3. Client Command Related Defines and Support
+// 4. Server Report Related Defines
+// 5. i2c Related Defines
+// 6. Pin Related Defines And Data Structures
+// 7. Feature Related Defines, Data Structures and Storage Allocation
+// 8. Command Functions
+// 9. Scanning Inputs, Generating Reports And Running Steppers
+// 10. Setup and Loop
+
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                    Arduino ID                      */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
 // This value must be the same as specified when instantiating the
 // telemetrix client. The client defaults to a value of 1.
 // This value is used for the client to auto-discover and to
 // connect to a specific board regardless of the current com port
 // it is currently connected to.
+
 #define ARDUINO_ID 1
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                    FEATURE ENABLING DEFINES                      */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
+
 
 // To disable a feature, comment out the desired enabling define or defines
 
@@ -50,22 +88,74 @@
 
 
 
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*         Client Command Related Defines and Support               */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
+// Commands Sent By The Client
 
 
+// Add commands retaining the sequential numbering.
+// The order of commands here must be maintained in the command_table.
+#define SERIAL_LOOP_BACK 0
+#define SET_PIN_MODE 1
+#define DIGITAL_WRITE 2
+#define ANALOG_WRITE 3
+#define MODIFY_REPORTING 4 // mode(all, analog, or digital), pin, enable or disable
+#define GET_FIRMWARE_VERSION 5
+#define ARE_U_THERE 6
+#define SERVO_ATTACH 7
+#define SERVO_WRITE 8
+#define SERVO_DETACH 9
+#define I2C_BEGIN 10
+#define I2C_READ 11
+#define I2C_WRITE 12
+#define SONAR_NEW 13
+#define DHT_NEW 14
+#define STOP_ALL_REPORTS 15
+#define SET_ANALOG_SCANNING_INTERVAL 16
+#define ENABLE_ALL_REPORTS 17
+#define RESET 18
+#define SPI_INIT 19
+#define SPI_WRITE_BLOCKING 20
+#define SPI_READ_BLOCKING 21
+#define SPI_SET_FORMAT 22
+#define SPI_CS_CONTROL 23
+#define ONE_WIRE_INIT 24
+#define ONE_WIRE_RESET 25
+#define ONE_WIRE_SELECT 26
+#define ONE_WIRE_SKIP 27
+#define ONE_WIRE_WRITE 28
+#define ONE_WIRE_READ 29
+#define ONE_WIRE_RESET_SEARCH 30
+#define ONE_WIRE_SEARCH 31
+#define ONE_WIRE_CRC8 32
+#define SET_PIN_MODE_STEPPER 33
+#define STEPPER_MOVE_TO 34
+#define STEPPER_MOVE 35
+#define STEPPER_RUN 36
+#define STEPPER_RUN_SPEED 37
+#define STEPPER_SET_MAX_SPEED 38
+#define STEPPER_SET_ACCELERATION 39
+#define STEPPER_SET_SPEED 40
+#define STEPPER_SET_CURRENT_POSITION 41
+#define STEPPER_RUN_SPEED_TO_POSITION 42
+#define STEPPER_STOP 43
+#define STEPPER_DISABLE_OUTPUTS 44
+#define STEPPER_ENABLE_OUTPUTS 45
+#define STEPPER_SET_MINIMUM_PULSE_WIDTH 46
+#define STEPPER_SET_ENABLE_PIN 47
+#define STEPPER_SET_3_PINS_INVERTED 48
+#define STEPPER_SET_4_PINS_INVERTED 49
+#define STEPPER_IS_RUNNING 50
+#define STEPPER_GET_CURRENT_POSITION 51
+#define STEPPER_GET_DISTANCE_TO_GO 52
+#define STEPPER_GET_TARGET_POSITION 53
+#define GET_FEATURES 54
 
-#include <Arduino.h>
-#include "Telemetrix4Arduino.h"
-#include <Servo.h>
-#include <Ultrasonic.h>
-#include <Wire.h>
-#include <DHTStable.h>
-#include <SPI.h>
-#include <OneWire.h>
-#include <AccelStepper.h>
 
+/* Command Forward References*/
 
-// To provide a forward reference for the command functions, they are defined
-// at the top of this file.
 // If you add a new command, you must add the command handler
 // here as well.
 
@@ -181,102 +271,11 @@ extern void stepper_is_running();
 
 extern void get_features();
 
-
-// features
-// comment out the define to disable a feature
-#define ONEWIRE_FEATURE 0x01
-#define DHT_FEATURE 0x02
-#define STEPPERS_FEATURE 0x04
-#define SPI_FEATURE 0x08
-#define SERVO_FEATURE 0x10
-
-// a byte to hold the list of enabled features
-uint8_t features = 0;
-
-
-// uncomment out the next line to create a 2nd i2c port
-// #define SECOND_I2C_PORT
-
-#ifdef SECOND_I2C_PORT
-// Change the pins to match SDA and SCL for your board
-#define SECOND_I2C_PORT_SDA PB3
-#define SECOND_I2C_PORT_SCL PB10
-
-TwoWire Wire2(SECOND_I2C_PORT_SDA, SECOND_I2C_PORT_SCL);
-#endif
-
-// a pointer to an active TwoWire object
-TwoWire *current_i2c_port;
-
-// a pointer to a OneWire object
-#ifdef ONE_WIRE_ENABLED
-OneWire *ow = NULL;
-#endif
-
-
-// Commands -received by this sketch
-// Add commands retaining the sequential numbering.
-// The order of commands here must be maintained in the command_table.
-#define SERIAL_LOOP_BACK 0
-#define SET_PIN_MODE 1
-#define DIGITAL_WRITE 2
-#define ANALOG_WRITE 3
-#define MODIFY_REPORTING 4 // mode(all, analog, or digital), pin, enable or disable
-#define GET_FIRMWARE_VERSION 5
-#define ARE_U_THERE 6
-#define SERVO_ATTACH 7
-#define SERVO_WRITE 8
-#define SERVO_DETACH 9
-#define I2C_BEGIN 10
-#define I2C_READ 11
-#define I2C_WRITE 12
-#define SONAR_NEW 13
-#define DHT_NEW 14
-#define STOP_ALL_REPORTS 15
-#define SET_ANALOG_SCANNING_INTERVAL 16
-#define ENABLE_ALL_REPORTS 17
-#define RESET 18
-#define SPI_INIT 19
-#define SPI_WRITE_BLOCKING 20
-#define SPI_READ_BLOCKING 21
-#define SPI_SET_FORMAT 22
-#define SPI_CS_CONTROL 23
-#define ONE_WIRE_INIT 24
-#define ONE_WIRE_RESET 25
-#define ONE_WIRE_SELECT 26
-#define ONE_WIRE_SKIP 27
-#define ONE_WIRE_WRITE 28
-#define ONE_WIRE_READ 29
-#define ONE_WIRE_RESET_SEARCH 30
-#define ONE_WIRE_SEARCH 31
-#define ONE_WIRE_CRC8 32
-#define SET_PIN_MODE_STEPPER 33
-#define STEPPER_MOVE_TO 34
-#define STEPPER_MOVE 35
-#define STEPPER_RUN 36
-#define STEPPER_RUN_SPEED 37
-#define STEPPER_SET_MAX_SPEED 38
-#define STEPPER_SET_ACCELERATION 39
-#define STEPPER_SET_SPEED 40
-#define STEPPER_SET_CURRENT_POSITION 41
-#define STEPPER_RUN_SPEED_TO_POSITION 42
-#define STEPPER_STOP 43
-#define STEPPER_DISABLE_OUTPUTS 44
-#define STEPPER_ENABLE_OUTPUTS 45
-#define STEPPER_SET_MINIMUM_PULSE_WIDTH 46
-#define STEPPER_SET_ENABLE_PIN 47
-#define STEPPER_SET_3_PINS_INVERTED 48
-#define STEPPER_SET_4_PINS_INVERTED 49
-#define STEPPER_IS_RUNNING 50
-#define STEPPER_GET_CURRENT_POSITION 51
-#define STEPPER_GET_DISTANCE_TO_GO 52
-#define STEPPER_GET_TARGET_POSITION 53
-#define GET_FEATURES 54
-
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
 // the command byte itself, and does not include the command
 // byte in its length.
+
 // The command_func is a pointer the command's function.
 struct command_descriptor
 {
@@ -284,7 +283,9 @@ struct command_descriptor
   void (*command_func)(void);
 };
 
-// An array of pointers to the command functions
+
+// An array of pointers to the command functions.
+// The list must be in the same order as the command defines.
 
 command_descriptor command_table[] =
 {
@@ -345,30 +346,21 @@ command_descriptor command_table[] =
   (&get_features),
 };
 
-// Input pin reporting control sub commands (modify_reporting)
-#define REPORTING_DISABLE_ALL 0
-#define REPORTING_ANALOG_ENABLE 1
-#define REPORTING_DIGITAL_ENABLE 2
-#define REPORTING_ANALOG_DISABLE 3
-#define REPORTING_DIGITAL_DISABLE 4
+
 
 // maximum length of a command in bytes
 #define MAX_COMMAND_LENGTH 30
 
-// Pin mode definitions
+// buffer to hold incoming command data
+byte command_buffer[MAX_COMMAND_LENGTH];
 
-// INPUT defined in Arduino.h = 0
-// OUTPUT defined in Arduino.h = 1
-// INPUT_PULLUP defined in Arduino.h = 2
-// The following are defined for arduino_telemetrix (AT)
-#define AT_ANALOG 3
-#define AT_MODE_NOT_SET 255
 
-// maximum number of pins supported
-#define MAX_DIGITAL_PINS_SUPPORTED 100
-#define MAX_ANALOG_PINS_SUPPORTED 15
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                 Reporting Defines and Support                    */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
 
-// Reports - sent from this sketch
+// Reports sent to the client
+
 #define DIGITAL_REPORT DIGITAL_WRITE
 #define ANALOG_REPORT ANALOG_WRITE
 #define FIRMWARE_REPORT 5
@@ -387,18 +379,7 @@ command_descriptor command_table[] =
 #define STEPPER_RUNNING_REPORT 18
 #define STEPPER_RUN_COMPLETE_REPORT 19
 #define FEATURES 20
-
-
 #define DEBUG_PRINT 99
-
-// DHT Report sub-types
-#define DHT_DATA 0
-#define DHT_READ_ERROR 1
-
-// firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 4
-#define FIRMWARE_MINOR 0
-#define FIRMWARE_PATCH 0
 
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
@@ -410,6 +391,81 @@ byte spi_report_message[64];
 #endif
 
 bool stop_reports = false; // a flag to stop sending all report messages
+
+// Input pin reporting control sub commands (modify_reporting)
+#define REPORTING_DISABLE_ALL 0
+#define REPORTING_ANALOG_ENABLE 1
+#define REPORTING_DIGITAL_ENABLE 2
+#define REPORTING_ANALOG_DISABLE 3
+#define REPORTING_DIGITAL_DISABLE 4
+
+
+// DHT Report sub-types
+#define DHT_DATA 0
+#define DHT_READ_ERROR 1
+
+// firmware version - update this when bumping the version
+#define FIRMWARE_MAJOR 4
+#define FIRMWARE_MINOR 0
+#define FIRMWARE_PATCH 0
+
+
+
+// Feature Masks And Storage
+
+#define ONEWIRE_FEATURE 0x01
+#define DHT_FEATURE 0x02
+#define STEPPERS_FEATURE 0x04
+#define SPI_FEATURE 0x08
+#define SERVO_FEATURE 0x10
+#define SONAR_FEATURE 0x20
+
+// a byte to hold the enabled features
+// the masks are OR'ed into the features byte
+uint8_t features = 0;
+
+
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                     i2c Related Defines*/
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
+/**********************************/
+/* i2c defines */
+
+// uncomment out the next line to create a 2nd i2c port
+// #define SECOND_I2C_PORT
+
+#ifdef SECOND_I2C_PORT
+// Change the pins to match SDA and SCL for your board
+#define SECOND_I2C_PORT_SDA PB3
+#define SECOND_I2C_PORT_SCL PB10
+
+TwoWire Wire2(SECOND_I2C_PORT_SDA, SECOND_I2C_PORT_SCL);
+#endif
+
+// a pointer to an active TwoWire object
+TwoWire *current_i2c_port;
+
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*           Pin Related Defines And Data Structures                */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
+
+// Pin mode definitions
+
+// INPUT defined in Arduino.h = 0
+// OUTPUT defined in Arduino.h = 1
+// INPUT_PULLUP defined in Arduino.h = 2
+// The following are defined for arduino_telemetrix (AT)
+#define AT_ANALOG 3
+#define AT_MODE_NOT_SET 255
+
+// maximum number of pins supported
+#define MAX_DIGITAL_PINS_SUPPORTED 100
+#define MAX_ANALOG_PINS_SUPPORTED 15
+
 
 // Analog input pin numbers are defined from
 // A0 - A7. Since we do not know if the board
@@ -488,6 +544,11 @@ unsigned long current_millis;  // for analog input loop
 unsigned long previous_millis; // for analog input loop
 uint8_t analog_sampling_interval = 19;
 
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*  Feature Related Defines, Data Structures and Storage Allocation */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
 // servo management
 #ifdef SERVO_ENABLED
 Servo servos[MAX_SERVOS];
@@ -539,7 +600,7 @@ struct DHT
   DHTStable *dht_sensor;
 };
 
-// an array of dht objects]
+// an array of dht objects
 DHT dhts[MAX_DHTS];
 
 byte dht_index = 0; // index into dht struct
@@ -548,6 +609,14 @@ unsigned long dht_current_millis;      // for analog input loop
 unsigned long dht_previous_millis;     // for analog input loop
 unsigned int dht_scan_interval = 2000; // scan dht's every 2 seconds
 #endif // DHT_ENABLED
+
+
+/* OneWire Object*/
+
+// a pointer to a OneWire object
+#ifdef ONE_WIRE_ENABLED
+OneWire *ow = NULL;
+#endif
 
 #define MAX_NUMBER_OF_STEPPERS 4
 
@@ -560,8 +629,11 @@ AccelStepper *steppers[MAX_NUMBER_OF_STEPPERS];
 uint8_t stepper_run_modes[MAX_NUMBER_OF_STEPPERS];
 #endif
 
-// buffer to hold incoming command data
-byte command_buffer[MAX_COMMAND_LENGTH];
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                       Command Functions                          */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
 
 // A method to send debug data across the serial link
 void send_debug_info(byte id, int value)
@@ -572,8 +644,6 @@ void send_debug_info(byte id, int value)
   debug_buffer[4] = lowByte(value);
   Serial.write(debug_buffer, 5);
 }
-
-// command functions
 
 // a function to loop back data over the serial port
 void serial_loopback()
@@ -1530,6 +1600,78 @@ void get_next_command()
   command_entry.command_func();
 }
 
+// reset the internal data structures to a known state
+void reset_data() {
+  // reset the data structures
+
+  // fist stop all reporting
+  stop_all_reports();
+
+  current_millis = 0;  // for analog input loop
+  previous_millis = 0; // for analog input loop
+  analog_sampling_interval = 19;
+
+  // detach any attached servos
+#ifdef SERVO_ENABLED
+  for (int i = 0; i < MAX_SERVOS; i++)
+  {
+    if (servos[i].attached() == true)
+    {
+      servos[i].detach();
+    }
+  }
+#endif
+
+#ifdef SONAR_ENABLED
+  sonars_index = 0; // reset the index into the sonars array
+
+  sonar_current_millis = 0;  // for analog input loop
+  sonar_previous_millis = 0; // for analog input loop
+  sonar_scan_interval = 33;  // Milliseconds between sensor pings
+  memset(sonars, 0, sizeof(sonars));
+#endif
+
+#ifdef DHT_ENABLED
+  dht_index = 0; // index into dht array
+
+  dht_current_millis = 0;      // for analog input loop
+  dht_previous_millis = 0;     // for analog input loop
+  dht_scan_interval = 2000;    // scan dht's every 2 seconds
+#endif
+
+#ifdef DHT_ENABLED
+  memset(dhts, 0, sizeof(dhts));
+#endif
+  enable_all_reports();
+}
+
+// initialize the pin data structures
+void init_pin_structures() {
+  for (byte i = 0; i < MAX_DIGITAL_PINS_SUPPORTED; i++)
+  {
+    the_digital_pins[i].pin_number = i;
+    the_digital_pins[i].pin_mode = AT_MODE_NOT_SET;
+    the_digital_pins[i].reporting_enabled = false;
+    the_digital_pins[i].last_value = 0;
+  }
+
+  // establish the analog pin array
+  for (byte i = 0; i < MAX_ANALOG_PINS_SUPPORTED; i++)
+  {
+    the_analog_pins[i].pin_number = i;
+    the_analog_pins[i].pin_mode = AT_MODE_NOT_SET;
+    the_analog_pins[i].reporting_enabled = false;
+    the_analog_pins[i].last_value = 0;
+    the_analog_pins[i].differential = 0;
+  }
+}
+
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*    Scanning Inputs, Generating Reports And Running Steppers      */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
+
 // scan the digital input pins for changes
 void scan_digital_inputs()
 {
@@ -1745,74 +1887,7 @@ void scan_dhts()
 #endif
 }
 
-// reset the internal data structures to a known state
-void reset_data() {
-  // reset the data structures
 
-  // fist stop all reporting
-  stop_all_reports();
-
-  current_millis = 0;  // for analog input loop
-  previous_millis = 0; // for analog input loop
-  analog_sampling_interval = 19;
-
-  // detach any attached servos
-#ifdef SERVO_ENABLED
-  for (int i = 0; i < MAX_SERVOS; i++)
-  {
-    if (servos[i].attached() == true)
-    {
-      servos[i].detach();
-    }
-  }
-#endif
-
-#ifdef SONAR_ENABLED
-  sonars_index = 0; // reset the index into the sonars array
-
-  sonar_current_millis = 0;  // for analog input loop
-  sonar_previous_millis = 0; // for analog input loop
-  sonar_scan_interval = 33;  // Milliseconds between sensor pings
-  memset(sonars, 0, sizeof(sonars));
-#endif
-
-#ifdef DHT_ENABLED
-  dht_index = 0; // index into dht array
-
-  dht_current_millis = 0;      // for analog input loop
-  dht_previous_millis = 0;     // for analog input loop
-  dht_scan_interval = 2000;    // scan dht's every 2 seconds
-#endif
-
-  init_pin_structures();
-
-
-#ifdef DHT_ENABLED
-  memset(dhts, 0, sizeof(dhts));
-#endif
-  enable_all_reports();
-}
-
-// initialize the pin data structures
-void init_pin_structures() {
-  for (byte i = 0; i < MAX_DIGITAL_PINS_SUPPORTED; i++)
-  {
-    the_digital_pins[i].pin_number = i;
-    the_digital_pins[i].pin_mode = AT_MODE_NOT_SET;
-    the_digital_pins[i].reporting_enabled = false;
-    the_digital_pins[i].last_value = 0;
-  }
-
-  // establish the analog pin array
-  for (byte i = 0; i < MAX_ANALOG_PINS_SUPPORTED; i++)
-  {
-    the_analog_pins[i].pin_number = i;
-    the_analog_pins[i].pin_mode = AT_MODE_NOT_SET;
-    the_analog_pins[i].reporting_enabled = false;
-    the_analog_pins[i].last_value = 0;
-    the_analog_pins[i].differential = 0;
-  }
-}
 
 void run_steppers() {
   boolean running;
@@ -1856,6 +1931,10 @@ void run_steppers() {
   }
 }
 
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                    Setup And Loop                                */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
 void setup()
 {
   // set up features for enabled features
@@ -1879,13 +1958,18 @@ void setup()
   features |= SERVO_FEATURE;
 #endif
 
-  init_pin_structures();
+#ifdef SONAR_ENABLED
+  features |= SONAR_FEATURE;
+#endif
+
 #ifdef STEPPERS_ENABLED
 
   for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
     stepper_run_modes[i] = STEPPER_STOP ;
   }
 #endif
+
+  init_pin_structures();
 
   Serial.begin(115200);
 }
