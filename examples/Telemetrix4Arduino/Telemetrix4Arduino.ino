@@ -1267,8 +1267,8 @@ void stepper_move_to() {
   // position LSB = command_buffer[4]
 
   // convert the 4 position bytes to a long
-  long position = command_buffer[1] << 24;
-  position += command_buffer[2] << 16;
+  long position = (long)(command_buffer[1]) << 24;
+  position += (long)(command_buffer[2]) << 16;
   position += command_buffer[3] << 8;
   position += command_buffer[4] ;
 
@@ -1287,8 +1287,8 @@ void stepper_move() {
   // position LSB = command_buffer[4]
 
   // convert the 4 position bytes to a long
-  long position = command_buffer[1] << 24;
-  position += command_buffer[2] << 16;
+  long position = (long)(command_buffer[1]) << 24;
+  position += (long)(command_buffer[2]) << 16;
   position += command_buffer[3] << 8;
   position += command_buffer[4] ;
 
@@ -1433,8 +1433,8 @@ void stepper_set_current_position() {
   // position LSB = command_buffer[4]
 
   // convert the 4 position bytes to a long
-  long position = command_buffer[1] << 24;
-  position += command_buffer[2] << 16;
+  long position = (long)(command_buffer[2]) << 24;
+  position += (long)(command_buffer[2]) << 16;
   position += command_buffer[3] << 8;
   position += command_buffer[4] ;
 
@@ -1906,7 +1906,7 @@ void run_steppers() {
           steppers[i]->run();
           running = steppers[i]->isRunning();
           if (!running) {
-            byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, i};
+            byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, (byte)i};
             Serial.write(report_message, 3);
             stepper_run_modes[i] = STEPPER_STOP;
           }
@@ -1918,7 +1918,7 @@ void run_steppers() {
           running = steppers[i]->runSpeedToPosition();
           target_position = steppers[i]->targetPosition();
           if (target_position == steppers[i]->currentPosition()) {
-            byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, i};
+            byte report_message[3] = {2, STEPPER_RUN_COMPLETE_REPORT, (byte)i};
             Serial.write(report_message, 3);
             stepper_run_modes[i] = STEPPER_STOP;
 
