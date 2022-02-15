@@ -929,9 +929,12 @@ void i2c_read()
   }
 #endif
 
-  current_i2c_port->beginTransmission(address);
-  current_i2c_port->write((byte)the_register);
-  current_i2c_port->endTransmission(command_buffer[3]);      // default = true
+  if( the_register)
+  {
+      current_i2c_port->beginTransmission(address);
+      current_i2c_port->write((byte)the_register);
+      current_i2c_port->endTransmission(command_buffer[3]);      // default = true
+  }
   current_i2c_port->requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
 
   // check to be sure correct number of bytes were returned by slave
