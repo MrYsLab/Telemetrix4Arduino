@@ -405,9 +405,9 @@ bool stop_reports = false; // a flag to stop sending all report messages
 #define DHT_READ_ERROR 1
 
 // firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 4
+#define FIRMWARE_MAJOR 5
 #define FIRMWARE_MINOR 0
-#define FIRMWARE_PATCH 1
+#define FIRMWARE_PATCH 0
 
 
 
@@ -910,6 +910,7 @@ void i2c_read()
   // number of bytes, [2]
   // stop transmitting flag [3]
   // i2c port [4]
+  // write the register [5]
 
   int message_size = 0;
   byte address = command_buffer[0];
@@ -929,9 +930,13 @@ void i2c_read()
   }
 #endif
 
-  current_i2c_port->beginTransmission(address);
-  current_i2c_port->write((byte)the_register);
-  current_i2c_port->endTransmission(command_buffer[3]);      // default = true
+  // write byte is true, then write the register
+  if( command_buffer[5])
+  {
+      current_i2c_port->beginTransmission(address);
+      current_i2c_port->write((byte)the_register);
+      current_i2c_port->endTransmission(command_buffer[3]);      // default = true
+  }
   current_i2c_port->requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
 
   // check to be sure correct number of bytes were returned by slave
@@ -1217,9 +1222,8 @@ void onewire_search() {
                                       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                       0xff
                                      };
-  bool found;
 
-  ow->search(&onewire_report_message[3], found);
+  ow->search(&onewire_report_message[3]);
   Serial.write(onewire_report_message, 11);
 #endif
 }
@@ -1827,8 +1831,6 @@ void scan_dhts()
 
   int rv;
 
-  float humidity, temperature;
-
   // are there any dhts to read?
   if (dht_index)
   {
@@ -1898,7 +1900,6 @@ void scan_dhts()
 
 void run_steppers() {
   boolean running;
-  long current_position ;
   long target_position;
 
 
