@@ -86,7 +86,9 @@
 #include <SPI.h>
 #endif
 
+#ifdef ONE_WIRE_ENABLED
 #include <OneWire.h>
+#endif
 
 #ifdef STEPPERS_ENABLED
 #include <AccelStepper.h>
