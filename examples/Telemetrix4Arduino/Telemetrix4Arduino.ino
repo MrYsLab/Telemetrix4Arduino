@@ -822,8 +822,9 @@ void are_you_there()
 // This is a helper function not called directly via the API
 int find_servo()
 {
-#ifdef SERVO_ENABLED
   int index = -1;
+
+#ifdef SERVO_ENABLED
   for (int i = 0; i < MAX_SERVOS; i++)
   {
     if (servos[i].attached() == false)
@@ -832,8 +833,9 @@ int find_servo()
       break;
     }
   }
-  return index;
 #endif
+
+  return index;
 }
 
 // Associate a pin with a servo
