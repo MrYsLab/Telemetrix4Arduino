@@ -16,22 +16,12 @@
 */
 
 
-#include <Arduino.h>
-#include "Telemetrix4Arduino.h"
-#include <Servo.h>
-#include <Ultrasonic.h>
-#include <Wire.h>
-#include <DHTStable.h>
-#include <SPI.h>
-#include <OneWire.h>
-#include <AccelStepper.h>
-
 // This file is rather large, so it has been rearranged in logical sections.
 // Here is the list of sections to help make it easier to locate items of interest,
 // and aid when adding new features.
 
-// 1. Arduino ID
-// 2. Feature Enabling Defines
+// 1. Feature Enabling Defines
+// 2. Arduino ID
 // 3. Client Command Related Defines and Support
 // 4. Server Report Related Defines
 // 5. i2c Related Defines
@@ -41,18 +31,6 @@
 // 9. Scanning Inputs, Generating Reports And Running Steppers
 // 10. Setup and Loop
 
-
-/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
-/*                    Arduino ID                      */
-/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
-
-// This value must be the same as specified when instantiating the
-// telemetrix client. The client defaults to a value of 1.
-// This value is used for the client to auto-discover and to
-// connect to a specific board regardless of the current com port
-// it is currently connected to.
-
-#define ARDUINO_ID 1
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
 /*                    FEATURE ENABLING DEFINES                      */
@@ -86,6 +64,46 @@
 // Comment this out to save sketch space for the UNO
 #define STEPPERS_ENABLED 1
 
+
+#include <Arduino.h>
+#include "Telemetrix4Arduino.h"
+
+#ifdef SERVO_ENABLED
+#include <Servo.h>
+#endif
+
+#ifdef SONAR_ENABLED
+#include <Ultrasonic.h>
+#endif
+
+#include <Wire.h>
+
+#ifdef DHT_ENABLED
+#include <DHTStable.h>
+#endif
+
+#ifdef SPI_ENABLED
+#include <SPI.h>
+#endif
+
+#include <OneWire.h>
+
+#ifdef STEPPERS_ENABLED
+#include <AccelStepper.h>
+#endif
+
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                    Arduino ID                      */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
+// This value must be the same as specified when instantiating the
+// telemetrix client. The client defaults to a value of 1.
+// This value is used for the client to auto-discover and to
+// connect to a specific board regardless of the current com port
+// it is currently connected to.
+
+#define ARDUINO_ID 1
 
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
