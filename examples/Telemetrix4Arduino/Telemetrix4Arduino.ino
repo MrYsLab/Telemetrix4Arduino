@@ -640,7 +640,7 @@ OneWire *ow = NULL;
 
 // stepper motor data
 //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 AccelStepper *steppers[MAX_NUMBER_OF_STEPPERS];
 
 // stepper run modes
@@ -1261,7 +1261,7 @@ void onewire_crc8() {
 // Stepper Motor supported
 void set_pin_mode_stepper() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // interface = command_buffer[1]
@@ -1280,7 +1280,7 @@ void set_pin_mode_stepper() {
 
 void stepper_move_to() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
@@ -1303,7 +1303,7 @@ void stepper_move_to() {
 
 void stepper_move() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
@@ -1327,7 +1327,7 @@ void stepper_move() {
 
 void stepper_run() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN;
 #endif
 }
@@ -1335,7 +1335,7 @@ void stepper_run() {
 void stepper_run_speed() {
   // motor_id = command_buffer[0]
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED;
 #endif
@@ -1343,7 +1343,7 @@ void stepper_run_speed() {
 
 void stepper_set_max_speed() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // speed_msb = command_buffer[1]
@@ -1356,7 +1356,7 @@ void stepper_set_max_speed() {
 
 void stepper_set_acceleration() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // accel_msb = command_buffer[1]
@@ -1373,7 +1373,7 @@ void stepper_set_speed() {
   // speed_msb = command_buffer[1]
   // speed_lsb = command_buffer[2]
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   float speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
   steppers[command_buffer[0]]->setSpeed(speed);
@@ -1382,7 +1382,7 @@ void stepper_set_speed() {
 
 void stepper_get_distance_to_go() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_DISTANCE_TO_GO, motor_id, distance(8 bytes)
@@ -1406,7 +1406,7 @@ void stepper_get_distance_to_go() {
 
 void stepper_get_target_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_TARGET_POSITION, motor_id, distance(8 bytes)
@@ -1430,7 +1430,7 @@ void stepper_get_target_position() {
 
 void stepper_get_current_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_CURRENT_POSITION, motor_id, distance(8 bytes)
@@ -1454,7 +1454,7 @@ void stepper_get_current_position() {
 
 void stepper_set_current_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
   // position MSB-1 = command_buffer[2]
@@ -1473,7 +1473,7 @@ void stepper_set_current_position() {
 
 void stepper_run_speed_to_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
 
 #endif
@@ -1481,7 +1481,7 @@ void stepper_run_speed_to_position() {
 
 void stepper_stop() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->stop();
   steppers[command_buffer[0]]->disableOutputs();
   stepper_run_modes[command_buffer[0]] = STEPPER_STOP;
@@ -1492,21 +1492,21 @@ void stepper_stop() {
 
 void stepper_disable_outputs() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->disableOutputs();
 #endif
 }
 
 void stepper_enable_outputs() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->enableOutputs();
 #endif
 }
 
 void stepper_set_minimum_pulse_width() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   unsigned int pulse_width = (command_buffer[1] << 8) + command_buffer[2];
   steppers[command_buffer[0]]->setMinPulseWidth(pulse_width);
 #endif
@@ -1514,14 +1514,14 @@ void stepper_set_minimum_pulse_width() {
 
 void stepper_set_enable_pin() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->setEnablePin((uint8_t) command_buffer[1]);
 #endif
 }
 
 void stepper_set_3_pins_inverted() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // command_buffer[1] = directionInvert
   // command_buffer[2] = stepInvert
   // command_buffer[3] = enableInvert
@@ -1538,7 +1538,7 @@ void stepper_set_4_pins_inverted() {
   // command_buffer[4] = pin4
   // command_buffer[5] = enable
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->setPinsInverted((bool) command_buffer[1],
       (bool) command_buffer[2],
       (bool) command_buffer[3],
@@ -1549,7 +1549,7 @@ void stepper_set_4_pins_inverted() {
 
 void stepper_is_running() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
@@ -1917,6 +1917,7 @@ void scan_dhts()
 
 
 void run_steppers() {
+#ifdef STEPPERS_ENABLED
   boolean running;
   long target_position;
 
@@ -1955,6 +1956,7 @@ void run_steppers() {
       }
     }
   }
+#endif
 }
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
@@ -2018,7 +2020,7 @@ void loop()
     scan_dhts();
 #endif
     //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
     run_steppers();
 #endif
   }
