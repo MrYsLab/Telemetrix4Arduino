@@ -64,6 +64,10 @@
 // Comment this out to save sketch space for the UNO
 #define STEPPERS_ENABLED 1
 
+// This will allow I2C support to be compiled into the sketch.
+// Comment this out to save sketch space for the UNO
+#define I2C_ENABLED 1
+
 
 #include <Arduino.h>
 #include "Telemetrix4Arduino.h"
@@ -76,7 +80,9 @@
 #include <Ultrasonic.h>
 #endif
 
+#ifdef I2C_ENABLED
 #include <Wire.h>
+#endif
 
 #ifdef DHT_ENABLED
 #include <DHTStable.h>
@@ -401,8 +407,10 @@ byte command_buffer[MAX_COMMAND_LENGTH];
 #define FEATURES 20
 #define DEBUG_PRINT 99
 
+#ifdef I2C_ENABLED
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
+#endif
 
 // A buffer to hold spi report data
 
@@ -439,6 +447,7 @@ bool stop_reports = false; // a flag to stop sending all report messages
 #define SPI_FEATURE 0x08
 #define SERVO_FEATURE 0x10
 #define SONAR_FEATURE 0x20
+#define I2C_FEATURE 0x40
 
 // a byte to hold the enabled features
 // the masks are OR'ed into the features byte
@@ -453,6 +462,7 @@ uint8_t features = 0;
 /**********************************/
 /* i2c defines */
 
+#ifdef I2C_ENABLED
 // uncomment out the next line to create a 2nd i2c port
 // #define SECOND_I2C_PORT
 
@@ -466,6 +476,7 @@ TwoWire Wire2(SECOND_I2C_PORT_SDA, SECOND_I2C_PORT_SCL);
 
 // a pointer to an active TwoWire object
 TwoWire *current_i2c_port;
+#endif
 
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
@@ -909,6 +920,7 @@ void servo_detach()
 // initialize i2c data transfers
 void i2c_begin()
 {
+#ifdef I2C_ENABLED
   byte i2c_port = command_buffer[0];
   if (not i2c_port)
   {
@@ -921,11 +933,13 @@ void i2c_begin()
     Wire2.begin();
   }
 #endif
+#endif
 }
 
 // read a number of bytes from a specific i2c register
 void i2c_read()
 {
+#ifdef I2C_ENABLED
   // data in the incoming message:
   // address, [0]
   // register, [1]
@@ -1004,11 +1018,13 @@ void i2c_read()
   {
     Serial.write(i2c_report_message[i]);
   }
+#endif
 }
 
 // write a specified number of bytes to an i2c device
 void i2c_write()
 {
+#ifdef I2C_ENABLED
   // command_buffer[0] is the number of bytes to send
   // command_buffer[1] is the device address
   // command_buffer[2] is the i2c port
@@ -1037,6 +1053,7 @@ void i2c_write()
   }
   current_i2c_port->endTransmission();
   delayMicroseconds(70);
+#endif
 }
 
 /***********************************
@@ -1992,6 +2009,10 @@ void setup()
 
 #ifdef SONAR_ENABLED
   features |= SONAR_FEATURE;
+#endif
+
+#ifdef I2C_ENABLED
+  features |= I2C_FEATURE;
 #endif
 
 #ifdef STEPPERS_ENABLED
