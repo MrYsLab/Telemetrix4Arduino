@@ -434,7 +434,7 @@ bool stop_reports = false; // a flag to stop sending all report messages
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 0
+#define FIRMWARE_MINOR 1
 #define FIRMWARE_PATCH 0
 
 
