@@ -16,22 +16,12 @@
 */
 
 
-#include <Arduino.h>
-#include "Telemetrix4Arduino.h"
-#include <Servo.h>
-#include <Ultrasonic.h>
-#include <Wire.h>
-#include <DHTStable.h>
-#include <SPI.h>
-#include <OneWire.h>
-#include <AccelStepper.h>
-
 // This file is rather large, so it has been rearranged in logical sections.
 // Here is the list of sections to help make it easier to locate items of interest,
 // and aid when adding new features.
 
-// 1. Arduino ID
-// 2. Feature Enabling Defines
+// 1. Feature Enabling Defines
+// 2. Arduino ID
 // 3. Client Command Related Defines and Support
 // 4. Server Report Related Defines
 // 5. i2c Related Defines
@@ -41,18 +31,6 @@
 // 9. Scanning Inputs, Generating Reports And Running Steppers
 // 10. Setup and Loop
 
-
-/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
-/*                    Arduino ID                      */
-/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
-
-// This value must be the same as specified when instantiating the
-// telemetrix client. The client defaults to a value of 1.
-// This value is used for the client to auto-discover and to
-// connect to a specific board regardless of the current com port
-// it is currently connected to.
-
-#define ARDUINO_ID 1
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
 /*                    FEATURE ENABLING DEFINES                      */
@@ -86,6 +64,54 @@
 // Comment this out to save sketch space for the UNO
 #define STEPPERS_ENABLED 1
 
+// This will allow I2C support to be compiled into the sketch.
+// Comment this out to save sketch space for the UNO
+#define I2C_ENABLED 1
+
+
+#include <Arduino.h>
+#include "Telemetrix4Arduino.h"
+
+#ifdef SERVO_ENABLED
+#include <Servo.h>
+#endif
+
+#ifdef SONAR_ENABLED
+#include <Ultrasonic.h>
+#endif
+
+#ifdef I2C_ENABLED
+#include <Wire.h>
+#endif
+
+#ifdef DHT_ENABLED
+#include <DHTStable.h>
+#endif
+
+#ifdef SPI_ENABLED
+#include <SPI.h>
+#endif
+
+#ifdef ONE_WIRE_ENABLED
+#include <OneWire.h>
+#endif
+
+#ifdef STEPPERS_ENABLED
+#include <AccelStepper.h>
+#endif
+
+
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+/*                    Arduino ID                      */
+/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+
+// This value must be the same as specified when instantiating the
+// telemetrix client. The client defaults to a value of 1.
+// This value is used for the client to auto-discover and to
+// connect to a specific board regardless of the current com port
+// it is currently connected to.
+
+#define ARDUINO_ID 1
 
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
@@ -381,8 +407,10 @@ byte command_buffer[MAX_COMMAND_LENGTH];
 #define FEATURES 20
 #define DEBUG_PRINT 99
 
+#ifdef I2C_ENABLED
 // A buffer to hold i2c report data
 byte i2c_report_message[64];
+#endif
 
 // A buffer to hold spi report data
 
@@ -419,6 +447,7 @@ bool stop_reports = false; // a flag to stop sending all report messages
 #define SPI_FEATURE 0x08
 #define SERVO_FEATURE 0x10
 #define SONAR_FEATURE 0x20
+#define I2C_FEATURE 0x40
 
 // a byte to hold the enabled features
 // the masks are OR'ed into the features byte
@@ -433,6 +462,7 @@ uint8_t features = 0;
 /**********************************/
 /* i2c defines */
 
+#ifdef I2C_ENABLED
 // uncomment out the next line to create a 2nd i2c port
 // #define SECOND_I2C_PORT
 
@@ -446,6 +476,7 @@ TwoWire Wire2(SECOND_I2C_PORT_SDA, SECOND_I2C_PORT_SCL);
 
 // a pointer to an active TwoWire object
 TwoWire *current_i2c_port;
+#endif
 
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
@@ -622,7 +653,7 @@ OneWire *ow = NULL;
 
 // stepper motor data
 //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 AccelStepper *steppers[MAX_NUMBER_OF_STEPPERS];
 
 // stepper run modes
@@ -802,8 +833,9 @@ void are_you_there()
 // This is a helper function not called directly via the API
 int find_servo()
 {
-#ifdef SERVO_ENABLED
   int index = -1;
+
+#ifdef SERVO_ENABLED
   for (int i = 0; i < MAX_SERVOS; i++)
   {
     if (servos[i].attached() == false)
@@ -812,8 +844,9 @@ int find_servo()
       break;
     }
   }
-  return index;
 #endif
+
+  return index;
 }
 
 // Associate a pin with a servo
@@ -887,6 +920,7 @@ void servo_detach()
 // initialize i2c data transfers
 void i2c_begin()
 {
+#ifdef I2C_ENABLED
   byte i2c_port = command_buffer[0];
   if (not i2c_port)
   {
@@ -899,11 +933,13 @@ void i2c_begin()
     Wire2.begin();
   }
 #endif
+#endif
 }
 
 // read a number of bytes from a specific i2c register
 void i2c_read()
 {
+#ifdef I2C_ENABLED
   // data in the incoming message:
   // address, [0]
   // register, [1]
@@ -982,11 +1018,13 @@ void i2c_read()
   {
     Serial.write(i2c_report_message[i]);
   }
+#endif
 }
 
 // write a specified number of bytes to an i2c device
 void i2c_write()
 {
+#ifdef I2C_ENABLED
   // command_buffer[0] is the number of bytes to send
   // command_buffer[1] is the device address
   // command_buffer[2] is the i2c port
@@ -1015,6 +1053,7 @@ void i2c_write()
   }
   current_i2c_port->endTransmission();
   delayMicroseconds(70);
+#endif
 }
 
 /***********************************
@@ -1243,7 +1282,7 @@ void onewire_crc8() {
 // Stepper Motor supported
 void set_pin_mode_stepper() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // interface = command_buffer[1]
@@ -1262,7 +1301,7 @@ void set_pin_mode_stepper() {
 
 void stepper_move_to() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
@@ -1285,7 +1324,7 @@ void stepper_move_to() {
 
 void stepper_move() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
@@ -1309,7 +1348,7 @@ void stepper_move() {
 
 void stepper_run() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN;
 #endif
 }
@@ -1317,7 +1356,7 @@ void stepper_run() {
 void stepper_run_speed() {
   // motor_id = command_buffer[0]
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED;
 #endif
@@ -1325,7 +1364,7 @@ void stepper_run_speed() {
 
 void stepper_set_max_speed() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // speed_msb = command_buffer[1]
@@ -1338,7 +1377,7 @@ void stepper_set_max_speed() {
 
 void stepper_set_acceleration() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   // motor_id = command_buffer[0]
   // accel_msb = command_buffer[1]
@@ -1355,7 +1394,7 @@ void stepper_set_speed() {
   // speed_msb = command_buffer[1]
   // speed_lsb = command_buffer[2]
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
 
   float speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
   steppers[command_buffer[0]]->setSpeed(speed);
@@ -1364,7 +1403,7 @@ void stepper_set_speed() {
 
 void stepper_get_distance_to_go() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_DISTANCE_TO_GO, motor_id, distance(8 bytes)
@@ -1388,7 +1427,7 @@ void stepper_get_distance_to_go() {
 
 void stepper_get_target_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_TARGET_POSITION, motor_id, distance(8 bytes)
@@ -1412,7 +1451,7 @@ void stepper_get_target_position() {
 
 void stepper_get_current_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_CURRENT_POSITION, motor_id, distance(8 bytes)
@@ -1436,7 +1475,7 @@ void stepper_get_current_position() {
 
 void stepper_set_current_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
   // position MSB = command_buffer[1]
   // position MSB-1 = command_buffer[2]
@@ -1455,7 +1494,7 @@ void stepper_set_current_position() {
 
 void stepper_run_speed_to_position() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   stepper_run_modes[command_buffer[0]] = STEPPER_RUN_SPEED_TO_POSITION;
 
 #endif
@@ -1463,7 +1502,7 @@ void stepper_run_speed_to_position() {
 
 void stepper_stop() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->stop();
   steppers[command_buffer[0]]->disableOutputs();
   stepper_run_modes[command_buffer[0]] = STEPPER_STOP;
@@ -1474,21 +1513,21 @@ void stepper_stop() {
 
 void stepper_disable_outputs() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->disableOutputs();
 #endif
 }
 
 void stepper_enable_outputs() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->enableOutputs();
 #endif
 }
 
 void stepper_set_minimum_pulse_width() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   unsigned int pulse_width = (command_buffer[1] << 8) + command_buffer[2];
   steppers[command_buffer[0]]->setMinPulseWidth(pulse_width);
 #endif
@@ -1496,14 +1535,14 @@ void stepper_set_minimum_pulse_width() {
 
 void stepper_set_enable_pin() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->setEnablePin((uint8_t) command_buffer[1]);
 #endif
 }
 
 void stepper_set_3_pins_inverted() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // command_buffer[1] = directionInvert
   // command_buffer[2] = stepInvert
   // command_buffer[3] = enableInvert
@@ -1520,7 +1559,7 @@ void stepper_set_4_pins_inverted() {
   // command_buffer[4] = pin4
   // command_buffer[5] = enable
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   steppers[command_buffer[0]]->setPinsInverted((bool) command_buffer[1],
       (bool) command_buffer[2],
       (bool) command_buffer[3],
@@ -1531,7 +1570,7 @@ void stepper_set_4_pins_inverted() {
 
 void stepper_is_running() {
   //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
   // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
@@ -1899,6 +1938,7 @@ void scan_dhts()
 
 
 void run_steppers() {
+#ifdef STEPPERS_ENABLED
   boolean running;
   long target_position;
 
@@ -1937,6 +1977,7 @@ void run_steppers() {
       }
     }
   }
+#endif
 }
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
@@ -1970,6 +2011,10 @@ void setup()
   features |= SONAR_FEATURE;
 #endif
 
+#ifdef I2C_ENABLED
+  features |= I2C_FEATURE;
+#endif
+
 #ifdef STEPPERS_ENABLED
 
   for ( int i = 0; i < MAX_NUMBER_OF_STEPPERS; i++) {
@@ -2000,7 +2045,7 @@ void loop()
     scan_dhts();
 #endif
     //#if !defined (__AVR_ATmega328P__)
-#ifdef STEPPERS_FEATURE
+#ifdef STEPPERS_ENABLED
     run_steppers();
 #endif
   }
