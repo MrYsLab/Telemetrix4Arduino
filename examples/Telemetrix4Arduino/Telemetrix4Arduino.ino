@@ -435,7 +435,7 @@ bool stop_reports = false; // a flag to stop sending all report messages
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
 #define FIRMWARE_MINOR 1
-#define FIRMWARE_PATCH 0
+#define FIRMWARE_PATCH 1
 
 
 
@@ -1777,7 +1777,7 @@ void scan_analog_inputs()
   current_millis = millis();
   if (current_millis - previous_millis > analog_sampling_interval)
   {
-    previous_millis += analog_sampling_interval;
+    previous_millis = current_millis;
 
     for (int i = 0; i < MAX_ANALOG_PINS_SUPPORTED; i++)
     {
@@ -1818,7 +1818,7 @@ void scan_sonars()
     sonar_current_millis = millis();
     if (sonar_current_millis - sonar_previous_millis > sonar_scan_interval)
     {
-      sonar_previous_millis += sonar_scan_interval;
+      sonar_previous_millis = sonar_current_millis;
       distance = sonars[last_sonar_visited].usonic->read();
       if (distance != sonars[last_sonar_visited].last_value)
       {
