@@ -941,12 +941,13 @@ void i2c_read()
 {
 #ifdef I2C_ENABLED
   // data in the incoming message:
-  // address, [0]
-  // register, [1]
-  // number of bytes, [2]
-  // stop transmitting flag [3]
-  // i2c port [4]
-  // write the register [5]
+  // i2c_port [0]
+  // address, [1]
+  // register, [2]
+  // number of bytes, [3]
+  // stop transmitting flag [4]
+  // i2c port [5]
+  // write the register [6]
 
   int message_size = 0;
   byte address = command_buffer[0];
