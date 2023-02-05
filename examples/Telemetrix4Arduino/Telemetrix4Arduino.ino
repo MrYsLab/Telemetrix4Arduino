@@ -178,6 +178,8 @@
 #define STEPPER_GET_DISTANCE_TO_GO 52
 #define STEPPER_GET_TARGET_POSITION 53
 #define GET_FEATURES 54
+#define SONAR_SCAN_OFF 55
+#define SONAR_SCAN_ON 56
 
 
 /* Command Forward References*/
@@ -297,6 +299,10 @@ extern void stepper_is_running();
 
 extern void get_features();
 
+extern void sonar_disable();
+
+extern void sonar_enable();
+
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
 // the command byte itself, and does not include the command
@@ -370,6 +376,8 @@ command_descriptor command_table[] =
   {&stepper_get_distance_to_go},
   (&stepper_get_target_position),
   (&get_features),
+  (&sonar_disable),
+  (&sonar_enable),
 };
 
 
@@ -405,6 +413,7 @@ byte command_buffer[MAX_COMMAND_LENGTH];
 #define STEPPER_RUNNING_REPORT 18
 #define STEPPER_RUN_COMPLETE_REPORT 19
 #define FEATURES 20
+
 #define DEBUG_PRINT 99
 
 #ifdef I2C_ENABLED
@@ -420,6 +429,8 @@ byte spi_report_message[64];
 
 bool stop_reports = false; // a flag to stop sending all report messages
 
+bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
+
 // Input pin reporting control sub commands (modify_reporting)
 #define REPORTING_DISABLE_ALL 0
 #define REPORTING_ANALOG_ENABLE 1
@@ -434,7 +445,7 @@ bool stop_reports = false; // a flag to stop sending all report messages
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 1
+#define FIRMWARE_MINOR 2
 #define FIRMWARE_PATCH 1
 
 
@@ -1072,6 +1083,14 @@ void sonar_new()
   sonars[sonars_index].trigger_pin = command_buffer[0];
   sonars_index++;
 #endif
+}
+
+void sonar_disable(){
+    sonar_reporting_enabled = false;
+}
+
+void sonar_enable(){
+    sonar_reporting_enabled = true;
 }
 
 /***********************************
@@ -2039,7 +2058,9 @@ void loop()
     scan_analog_inputs();
 
 #ifdef SONAR_ENABLED
-    scan_sonars();
+    if(sonar_reporting_enabled ){
+        scan_sonars();
+    }
 #endif
 
 #ifdef DHT_ENABLED
