@@ -178,6 +178,9 @@
 #define STEPPER_GET_DISTANCE_TO_GO 52
 #define STEPPER_GET_TARGET_POSITION 53
 #define GET_FEATURES 54
+#define SONAR_SCAN_OFF 55
+#define SONAR_SCAN_ON 56
+#define BOARD_HARD_RESET 57
 
 
 /* Command Forward References*/
@@ -297,6 +300,12 @@ extern void stepper_is_running();
 
 extern void get_features();
 
+extern void sonar_disable();
+
+extern void sonar_enable();
+
+extern void board_hard_reset();
+
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
 // the command byte itself, and does not include the command
@@ -370,6 +379,9 @@ command_descriptor command_table[] =
   {&stepper_get_distance_to_go},
   (&stepper_get_target_position),
   (&get_features),
+  (&sonar_disable),
+  (&sonar_enable),
+  (&board_hard_reset),
 };
 
 
@@ -405,6 +417,7 @@ byte command_buffer[MAX_COMMAND_LENGTH];
 #define STEPPER_RUNNING_REPORT 18
 #define STEPPER_RUN_COMPLETE_REPORT 19
 #define FEATURES 20
+
 #define DEBUG_PRINT 99
 
 #ifdef I2C_ENABLED
@@ -420,6 +433,8 @@ byte spi_report_message[64];
 
 bool stop_reports = false; // a flag to stop sending all report messages
 
+bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
+
 // Input pin reporting control sub commands (modify_reporting)
 #define REPORTING_DISABLE_ALL 0
 #define REPORTING_ANALOG_ENABLE 1
@@ -434,8 +449,8 @@ bool stop_reports = false; // a flag to stop sending all report messages
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 1
-#define FIRMWARE_PATCH 1
+#define FIRMWARE_MINOR 3
+#define FIRMWARE_PATCH 0
 
 
 
@@ -539,7 +554,9 @@ TwoWire *current_i2c_port;
 
 // To translate a pin number from an integer value to its analog pin number
 // equivalent, this array is used to look up the value to use for the pin.
-#ifdef ARDUINO_SAMD_MKRWIFI1010
+#ifdef ARDUINO_ARCH_RENESAS
+int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5};
+#elif ARDUINO_SAMD_MKRWIFI1010
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6};
 #else
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15};
@@ -1074,6 +1091,20 @@ void sonar_new()
 #endif
 }
 
+void sonar_disable(){
+    sonar_reporting_enabled = false;
+}
+
+void sonar_enable(){
+    sonar_reporting_enabled = true;
+}
+
+void board_hard_reset(){
+  send_debug_info(1, 1);
+  NVIC_SystemReset();
+  delay(2000);
+}
+
 /***********************************
    DHT adding a new device
  **********************************/
@@ -1593,6 +1624,7 @@ void stop_all_reports()
   stop_reports = true;
   delay(20);
   Serial.flush();
+  // NVIC_SystemReset();
 }
 
 // enable all reports to be generated
@@ -2039,7 +2071,9 @@ void loop()
     scan_analog_inputs();
 
 #ifdef SONAR_ENABLED
-    scan_sonars();
+    if(sonar_reporting_enabled ){
+        scan_sonars();
+    }
 #endif
 
 #ifdef DHT_ENABLED
