@@ -429,7 +429,11 @@ byte spi_report_message[64];
 // SPI settings
 uint32_t spi_clock_freq = F_CPU / 4;
 uint8_t spi_clock_divider = 4;
+#if defined (__AVR__)
+uint8_t spi_bit_order = MSBFIRST;
+#else
 BitOrder spi_bit_order = MSBFIRST;
+#endif
 uint8_t spi_mode= SPI_MODE0;
 
 #endif
@@ -559,6 +563,8 @@ TwoWire *current_i2c_port;
 // equivalent, this array is used to look up the value to use for the pin.
 #ifdef ARDUINO_SAMD_MKRWIFI1010
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6};
+#elif ARDUINO_FSP
+int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5};
 #else
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15};
 #endif
@@ -1208,6 +1214,7 @@ void set_format_spi() {
 #ifdef SPI_ENABLED
 
 #if defined(__AVR__)
+
   SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
 #else
   BitOrder b;
