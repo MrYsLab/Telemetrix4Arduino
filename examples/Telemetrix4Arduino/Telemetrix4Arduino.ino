@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2020-2021 Alan Yorinks All rights reserved.
+  Copyright (c) 2020-2023 Alan Yorinks All rights reserved.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -1207,16 +1207,18 @@ void read_blocking_spi() {
 void set_format_spi() {
 #ifdef SPI_ENABLED
 
-spi_clock_freq = F_CPU / command_buffer[0];
-if(command_buffer[1])
-  spi_bit_order = MSBFIRST;
-else
-  spi_bit_order = LSBFIRST;
+#if defined(__AVR__)
+  SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
+#else
+  BitOrder b;
 
-spi_bit_order = (BitOrder)command_buffer[1];
-spi_mode = command_buffer[2];
-
-
+  if (command_buffer[1]) {
+    b = MSBFIRST;
+  } else {
+    b = LSBFIRST;
+  }
+  SPISettings(command_buffer[0], b, command_buffer[2]);
+#endif // avr
 #endif // SPI_ENABLED
 }
 
