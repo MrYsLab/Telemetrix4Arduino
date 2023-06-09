@@ -178,6 +178,9 @@
 #define STEPPER_GET_DISTANCE_TO_GO 52
 #define STEPPER_GET_TARGET_POSITION 53
 #define GET_FEATURES 54
+#define SONAR_SCAN_OFF 55
+#define SONAR_SCAN_ON 56
+#define BOARD_HARD_RESET 57
 
 
 /* Command Forward References*/
@@ -297,6 +300,10 @@ extern void stepper_is_running();
 
 extern void get_features();
 
+extern void sonar_disable();
+
+extern void sonar_enable();
+
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
 // the command byte itself, and does not include the command
@@ -370,6 +377,8 @@ command_descriptor command_table[] =
   {&stepper_get_distance_to_go},
   (&stepper_get_target_position),
   (&get_features),
+  (&sonar_disable),
+  (&sonar_enable),
 };
 
 
@@ -416,9 +425,18 @@ byte i2c_report_message[64];
 
 #ifdef SPI_ENABLED
 byte spi_report_message[64];
+
+// SPI settings
+uint32_t spi_clock_freq = F_CPU / 4;
+uint8_t spi_clock_divider = 4;
+BitOrder spi_bit_order = MSBFIRST;
+uint8_t spi_mode= SPI_MODE0;
+
 #endif
 
 bool stop_reports = false; // a flag to stop sending all report messages
+
+bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
 
 // Input pin reporting control sub commands (modify_reporting)
 #define REPORTING_DISABLE_ALL 0
@@ -434,7 +452,7 @@ bool stop_reports = false; // a flag to stop sending all report messages
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 1
+#define FIRMWARE_MINOR 2
 #define FIRMWARE_PATCH 1
 
 
@@ -1074,6 +1092,14 @@ void sonar_new()
 #endif
 }
 
+void sonar_disable(){
+    sonar_reporting_enabled = false;
+}
+
+void sonar_enable(){
+    sonar_reporting_enabled = true;
+}
+
 /***********************************
    DHT adding a new device
  **********************************/
@@ -1115,17 +1141,35 @@ void init_spi() {
 // write a number of blocks to the SPI device
 void write_blocking_spi() {
 #ifdef SPI_ENABLED
-  int num_bytes = command_buffer[0];
+  int num_bytes = command_buffer[1];
 
+  SPI.beginTransaction(SPISettings(spi_clock_freq, spi_bit_order, spi_mode));
+  digitalWrite(command_buffer[0], 0);
   for (int i = 0; i < num_bytes; i++) {
-    SPI.transfer(command_buffer[1 + i] );
+    SPI.transfer(command_buffer[2 + i] );
   }
+  digitalWrite(command_buffer[0], 1);
+
+  SPI.endTransaction();
 #endif
 }
 
 // read a number of bytes from the SPI device
 void read_blocking_spi() {
 #ifdef SPI_ENABLED
+
+  spi_report_message[0] = command_buffer[1] + 4; // packet length
+  spi_report_message[1] = SPI_REPORT;
+  spi_report_message[2] = command_buffer[0]; // chip select pin
+  spi_report_message[3] = command_buffer[2]; // register
+  spi_report_message[4] = command_buffer[1]; // number of bytes read
+
+  //send_debug_info(command_buffer[0], 0);
+  //send_debug_info(command_buffer[1], 1);
+  //send_debug_info(command_buffer[2], 2);
+  //send_debug_info(command_buffer[3], 3);
+
+  SPI.beginTransaction(SPISettings(spi_clock_freq, spi_bit_order, spi_mode));
   // command_buffer[0] == number of bytes to read
   // command_buffer[1] == read register
 
@@ -1137,20 +1181,25 @@ void read_blocking_spi() {
 
   // configure the report message
   // calculate the packet length
-  spi_report_message[0] = command_buffer[0] + 3; // packet length
-  spi_report_message[1] = SPI_REPORT;
-  spi_report_message[2] = command_buffer[1]; // register
-  spi_report_message[3] = command_buffer[0]; // number of bytes read
+  digitalWrite(command_buffer[0], 0);
 
-  // write the register out. OR it with 0x80 to indicate a read
-  SPI.transfer(command_buffer[1] | 0x80);
+    // write the register out. OR it with 0x80 to indicate a read
+  SPI.transfer(command_buffer[2] | 0x80);
+  //delay(100);
 
   // now read the specified number of bytes and place
   // them in the report buffer
-  for (int i = 0; i < command_buffer[0] ; i++) {
-    spi_report_message[i + 4] = SPI.transfer(0x00);
+  for (int i = 0; i < command_buffer[1] ; i++) {
+    spi_report_message[i + 5] = SPI.transfer(0x00);
+
   }
-  Serial.write(spi_report_message, command_buffer[0] + 4);
+  //send_debug_info(SPI.transfer(0x00), 2);
+  digitalWrite(command_buffer[0], 1);
+
+  SPI.endTransaction();
+
+  Serial.write(spi_report_message, command_buffer[1] + 5);
+
 #endif
 }
 
@@ -1158,18 +1207,16 @@ void read_blocking_spi() {
 void set_format_spi() {
 #ifdef SPI_ENABLED
 
-#if defined(__AVR__)
-  SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
-#else
-  BitOrder b;
+spi_clock_freq = F_CPU / command_buffer[0];
+if(command_buffer[1])
+  spi_bit_order = MSBFIRST;
+else
+  spi_bit_order = LSBFIRST;
 
-  if (command_buffer[1]) {
-    b = MSBFIRST;
-  } else {
-    b = LSBFIRST;
-  }
-  SPISettings(command_buffer[0], b, command_buffer[2]);
-#endif // avr
+spi_bit_order = (BitOrder)command_buffer[1];
+spi_mode = command_buffer[2];
+
+
 #endif // SPI_ENABLED
 }
 
@@ -2039,7 +2086,9 @@ void loop()
     scan_analog_inputs();
 
 #ifdef SONAR_ENABLED
-    scan_sonars();
+    if(sonar_reporting_enabled ){
+        scan_sonars();
+    }
 #endif
 
 #ifdef DHT_ENABLED
