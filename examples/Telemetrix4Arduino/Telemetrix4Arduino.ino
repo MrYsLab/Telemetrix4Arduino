@@ -304,6 +304,8 @@ extern void sonar_disable();
 
 extern void sonar_enable();
 
+extern void board_hard_reset();
+
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
 // the command byte itself, and does not include the command
@@ -379,6 +381,7 @@ command_descriptor command_table[] =
   (&get_features),
   (&sonar_disable),
   (&sonar_enable),
+  (&board_hard_reset),
 };
 
 
@@ -1104,6 +1107,14 @@ void sonar_disable(){
 
 void sonar_enable(){
     sonar_reporting_enabled = true;
+}
+
+void board_hard_reset(){
+#if defined (ARDUINO_FSP)
+  send_debug_info(1, 1);
+  NVIC_SystemReset();
+  delay(2000);
+#endif
 }
 
 /***********************************
