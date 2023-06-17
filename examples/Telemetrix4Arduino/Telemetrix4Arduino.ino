@@ -459,7 +459,7 @@ bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 2
+#define FIRMWARE_MINOR 3
 #define FIRMWARE_PATCH 1
 
 
