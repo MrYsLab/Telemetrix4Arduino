@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2020-2021 Alan Yorinks All rights reserved.
+  Copyright (c) 2020-2023 Alan Yorinks All rights reserved.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -10,7 +10,7 @@
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
 
-  You should have received a copy of the GNU AFFERO GENERAL PUBLIC LICENSEf
+  You should have received a copy of the GNU AFFERO GENERAL PUBLIC LICENSE
   along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
@@ -181,6 +181,9 @@
 #define SONAR_SCAN_OFF 55
 #define SONAR_SCAN_ON 56
 
+#define BOARD_HARD_RESET 57
+
+
 
 /* Command Forward References*/
 
@@ -303,6 +306,8 @@ extern void sonar_disable();
 
 extern void sonar_enable();
 
+extern void board_hard_reset();
+
 // When adding a new command update the command_table.
 // The command length is the number of bytes that follow
 // the command byte itself, and does not include the command
@@ -378,6 +383,7 @@ command_descriptor command_table[] =
   (&get_features),
   (&sonar_disable),
   (&sonar_enable),
+  (&board_hard_reset),
 };
 
 
@@ -425,6 +431,17 @@ byte i2c_report_message[64];
 
 #ifdef SPI_ENABLED
 byte spi_report_message[64];
+
+// SPI settings
+uint32_t spi_clock_freq = F_CPU / 4;
+uint8_t spi_clock_divider = 4;
+#if defined (__AVR__)
+uint8_t spi_bit_order = MSBFIRST;
+#else
+BitOrder spi_bit_order = MSBFIRST;
+#endif
+uint8_t spi_mode= SPI_MODE0;
+
 #endif
 
 bool stop_reports = false; // a flag to stop sending all report messages
@@ -445,9 +462,8 @@ bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 2
+#define FIRMWARE_MINOR 3
 #define FIRMWARE_PATCH 1
-
 
 
 // Feature Masks And Storage
@@ -552,6 +568,8 @@ TwoWire *current_i2c_port;
 // equivalent, this array is used to look up the value to use for the pin.
 #ifdef ARDUINO_SAMD_MKRWIFI1010
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6};
+#elif ARDUINO_FSP
+int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5};
 #else
 int analog_read_pins[20] = {A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15};
 #endif
@@ -1093,6 +1111,13 @@ void sonar_enable(){
     sonar_reporting_enabled = true;
 }
 
+void board_hard_reset(){
+#if defined (ARDUINO_FSP)
+  NVIC_SystemReset();
+  delay(2000);
+#endif
+}
+
 /***********************************
    DHT adding a new device
  **********************************/
@@ -1134,17 +1159,37 @@ void init_spi() {
 // write a number of blocks to the SPI device
 void write_blocking_spi() {
 #ifdef SPI_ENABLED
-  int num_bytes = command_buffer[0];
+  int num_bytes = command_buffer[1];
 
+  //send_debug_info(4, spi_bit_order);
+  //send_debug_info(5, spi_mode);
+  SPI.beginTransaction(SPISettings(spi_clock_freq, spi_bit_order, spi_mode));
+  digitalWrite(command_buffer[0], 0);
   for (int i = 0; i < num_bytes; i++) {
-    SPI.transfer(command_buffer[1 + i] );
+    SPI.transfer(command_buffer[2 + i] );
   }
+  digitalWrite(command_buffer[0], 1);
+
+  SPI.endTransaction();
 #endif
 }
 
 // read a number of bytes from the SPI device
 void read_blocking_spi() {
 #ifdef SPI_ENABLED
+
+  spi_report_message[0] = command_buffer[1] + 4; // packet length
+  spi_report_message[1] = SPI_REPORT;
+  spi_report_message[2] = command_buffer[0]; // chip select pin
+  spi_report_message[3] = command_buffer[2]; // register
+  spi_report_message[4] = command_buffer[1]; // number of bytes read
+
+  //send_debug_info(command_buffer[0], 0);
+  //send_debug_info(command_buffer[1], 1);
+  //send_debug_info(command_buffer[2], 2);
+  //send_debug_info(command_buffer[3], 3);
+
+  SPI.beginTransaction(SPISettings(spi_clock_freq, spi_bit_order, spi_mode));
   // command_buffer[0] == number of bytes to read
   // command_buffer[1] == read register
 
@@ -1156,20 +1201,26 @@ void read_blocking_spi() {
 
   // configure the report message
   // calculate the packet length
-  spi_report_message[0] = command_buffer[0] + 3; // packet length
-  spi_report_message[1] = SPI_REPORT;
-  spi_report_message[2] = command_buffer[1]; // register
-  spi_report_message[3] = command_buffer[0]; // number of bytes read
+  digitalWrite(command_buffer[0], 0);
 
-  // write the register out. OR it with 0x80 to indicate a read
-  SPI.transfer(command_buffer[1] | 0x80);
+    // write the register out. OR it with 0x80 to indicate a read
+
+  SPI.transfer(command_buffer[2] | 0x80);
+  delay(100);
 
   // now read the specified number of bytes and place
   // them in the report buffer
-  for (int i = 0; i < command_buffer[0] ; i++) {
-    spi_report_message[i + 4] = SPI.transfer(0x00);
+  for (int i = 0; i < command_buffer[1] ; i++) {
+    spi_report_message[i + 5] = SPI.transfer(0x00);
+
   }
-  Serial.write(spi_report_message, command_buffer[0] + 4);
+  //send_debug_info(SPI.transfer(0x00), 2);
+  digitalWrite(command_buffer[0], 1);
+
+  SPI.endTransaction();
+
+  Serial.write(spi_report_message, command_buffer[1] + 5);
+
 #endif
 }
 
@@ -1177,8 +1228,12 @@ void read_blocking_spi() {
 void set_format_spi() {
 #ifdef SPI_ENABLED
 
+  spi_clock_freq = F_CPU / command_buffer[0];
+  spi_mode = command_buffer[2];
+
 #if defined(__AVR__)
-  SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
+  spi_bit_order = command_buffer[1] ;
+  //SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
 #else
   BitOrder b;
 
@@ -1187,7 +1242,7 @@ void set_format_spi() {
   } else {
     b = LSBFIRST;
   }
-  SPISettings(command_buffer[0], b, command_buffer[2]);
+  spi_bit_order = b;
 #endif // avr
 #endif // SPI_ENABLED
 }
@@ -2045,6 +2100,13 @@ void setup()
   init_pin_structures();
 
   Serial.begin(115200);
+  pinMode(13, OUTPUT);
+  for( int i = 0; i < 4; i++){
+    digitalWrite(13, HIGH);
+    delay(250);
+    digitalWrite(13, LOW);
+    delay(250);
+  }
 }
 
 void loop()
