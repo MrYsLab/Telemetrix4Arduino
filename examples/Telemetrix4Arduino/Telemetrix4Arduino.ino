@@ -10,7 +10,7 @@
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
 
-  You should have received a copy of the GNU AFFERO GENERAL PUBLIC LICENSEf
+  You should have received a copy of the GNU AFFERO GENERAL PUBLIC LICENSE
   along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
@@ -1111,7 +1111,6 @@ void sonar_enable(){
 
 void board_hard_reset(){
 #if defined (ARDUINO_FSP)
-  send_debug_info(1, 1);
   NVIC_SystemReset();
   delay(2000);
 #endif
@@ -1160,6 +1159,8 @@ void write_blocking_spi() {
 #ifdef SPI_ENABLED
   int num_bytes = command_buffer[1];
 
+  //send_debug_info(4, spi_bit_order);
+  //send_debug_info(5, spi_mode);
   SPI.beginTransaction(SPISettings(spi_clock_freq, spi_bit_order, spi_mode));
   digitalWrite(command_buffer[0], 0);
   for (int i = 0; i < num_bytes; i++) {
@@ -1201,8 +1202,9 @@ void read_blocking_spi() {
   digitalWrite(command_buffer[0], 0);
 
     // write the register out. OR it with 0x80 to indicate a read
+
   SPI.transfer(command_buffer[2] | 0x80);
-  //delay(100);
+  delay(100);
 
   // now read the specified number of bytes and place
   // them in the report buffer
@@ -1224,9 +1226,12 @@ void read_blocking_spi() {
 void set_format_spi() {
 #ifdef SPI_ENABLED
 
-#if defined(__AVR__)
+  spi_clock_freq = F_CPU / command_buffer[0];
+  spi_mode = command_buffer[2];
 
-  SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
+#if defined(__AVR__)
+  spi_bit_order = command_buffer[1] ;
+  //SPISettings(command_buffer[0], command_buffer[1], command_buffer[2]);
 #else
   BitOrder b;
 
@@ -1235,7 +1240,7 @@ void set_format_spi() {
   } else {
     b = LSBFIRST;
   }
-  SPISettings(command_buffer[0], b, command_buffer[2]);
+  spi_bit_order = b;
 #endif // avr
 #endif // SPI_ENABLED
 }
@@ -2093,6 +2098,13 @@ void setup()
   init_pin_structures();
 
   Serial.begin(115200);
+  pinMode(13, OUTPUT);
+  for( int i = 0; i < 4; i++){
+    digitalWrite(13, HIGH);
+    delay(250);
+    digitalWrite(13, LOW);
+    delay(250);
+  }
 }
 
 void loop()
