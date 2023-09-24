@@ -443,7 +443,7 @@ uint8_t spi_mode= SPI_MODE0;
 
 bool stop_reports = false; // a flag to stop sending all report messages
 
-bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
+bool sonar_reporting_enabled = true; // flag to start and stop sonar reporting
 
 // Input pin reporting control sub commands (modify_reporting)
 #define REPORTING_DISABLE_ALL 0
@@ -460,7 +460,7 @@ bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
 #define FIRMWARE_MINOR 3
-#define FIRMWARE_PATCH 1
+#define FIRMWARE_PATCH 0
 
 
 
@@ -1227,7 +1227,23 @@ void set_format_spi() {
 #ifdef SPI_ENABLED
 
   spi_clock_freq = F_CPU / command_buffer[0];
-  spi_mode = command_buffer[2];
+  switch(command_buffer[2]) {
+      case 0:
+          spi_mode = SPI_MODE0;
+          break;
+      case 1:
+          spi_mode = SPI_MODE1;
+          break;
+      case 2:
+          spi_mode = SPI_MODE2;
+          break;
+      case 3:
+          spi_mode = SPI_MODE3;
+          break;
+      default:
+          spi_mode = SPI_MODE0;
+          break;
+  }
 
 #if defined(__AVR__)
   spi_bit_order = command_buffer[1] ;
@@ -1466,10 +1482,14 @@ void stepper_set_speed() {
   // motor_id = command_buffer[0]
   // speed_msb = command_buffer[1]
   // speed_lsb = command_buffer[2]
+  // direction = command_buffer[3]
   //#if !defined (__AVR_ATmega328P__)
 #ifdef STEPPERS_ENABLED
 
   float speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
+  if (command_buffer[3] == 1){
+      speed = speed * -1.0;
+  }
   steppers[command_buffer[0]]->setSpeed(speed);
 #endif
 }
