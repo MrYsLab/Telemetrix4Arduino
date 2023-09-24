@@ -180,7 +180,9 @@
 #define GET_FEATURES 54
 #define SONAR_SCAN_OFF 55
 #define SONAR_SCAN_ON 56
+
 #define BOARD_HARD_RESET 57
+
 
 
 /* Command Forward References*/
@@ -417,6 +419,7 @@ byte command_buffer[MAX_COMMAND_LENGTH];
 #define STEPPER_RUNNING_REPORT 18
 #define STEPPER_RUN_COMPLETE_REPORT 19
 #define FEATURES 20
+
 #define DEBUG_PRINT 99
 
 #ifdef I2C_ENABLED
@@ -461,7 +464,6 @@ bool sonar_reporting_enabled = true; // flag to start and stop sonar reporting
 #define FIRMWARE_MAJOR 5
 #define FIRMWARE_MINOR 3
 #define FIRMWARE_PATCH 0
-
 
 
 // Feature Masks And Storage
