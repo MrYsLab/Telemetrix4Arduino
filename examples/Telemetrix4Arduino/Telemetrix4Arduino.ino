@@ -463,7 +463,7 @@ bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
 #define FIRMWARE_MINOR 3
-#define FIRMWARE_PATCH 1
+#define FIRMWARE_PATCH 2
 
 
 // Feature Masks And Storage
@@ -678,7 +678,7 @@ unsigned int dht_scan_interval = 2000; // scan dht's every 2 seconds
 OneWire *ow = NULL;
 #endif
 
-#define MAX_NUMBER_OF_STEPPERS 4
+#define MAX_NUMBER_OF_STEPPERS 8
 
 // stepper motor data
 //#if !defined (__AVR_ATmega328P__)
