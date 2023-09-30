@@ -463,7 +463,7 @@ bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
 #define FIRMWARE_MINOR 3
-#define FIRMWARE_PATCH 2
+#define FIRMWARE_PATCH 3
 
 
 // Feature Masks And Storage
@@ -1472,6 +1472,9 @@ void stepper_set_speed() {
 #ifdef STEPPERS_ENABLED
 
   float speed = (float) ((command_buffer[1] << 8) + command_buffer[2]);
+  if (command_buffer[3] == 1){
+      speed = speed * -1.0;
+  }
   steppers[command_buffer[0]]->setSpeed(speed);
 #endif
 }
