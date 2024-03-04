@@ -522,7 +522,7 @@ TwoWire *current_i2c_port;
 
 // maximum number of pins supported
 #define MAX_DIGITAL_PINS_SUPPORTED 100
-#define MAX_ANALOG_PINS_SUPPORTED 15
+#define MAX_ANALOG_PINS_SUPPORTED 16
 
 
 // Analog input pin numbers are defined from
@@ -1003,7 +1003,11 @@ void i2c_read()
       current_i2c_port->write((byte)the_register);
       current_i2c_port->endTransmission(command_buffer[3]);      // default = true
   }
+  #ifdef ARDUINO_AVR_NANO_EVERY
+  current_i2c_port->requestFrom(address, (size_t)command_buffer[2]); // all bytes are returned in requestFrom
+  #else
   current_i2c_port->requestFrom(address, command_buffer[2]); // all bytes are returned in requestFrom
+  #endif
 
   // check to be sure correct number of bytes were returned by slave
   if (command_buffer[2] < current_i2c_port->available())
