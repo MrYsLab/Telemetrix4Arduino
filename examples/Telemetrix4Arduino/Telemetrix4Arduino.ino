@@ -462,8 +462,8 @@ bool sonar_reporting_enabled = true; // flag to start and stop sonar reporing
 
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 3
-#define FIRMWARE_PATCH 3
+#define FIRMWARE_MINOR 4
+#define FIRMWARE_PATCH 0
 
 
 // Feature Masks And Storage
@@ -1655,14 +1655,14 @@ void stepper_is_running() {
 #ifdef STEPPERS_ENABLED
   // motor_id = command_buffer[0]
 
-  // report = STEPPER_IS_RUNNING, motor_id, distance(8 bytes)
+  // report = STEPPER_IS_RUNNING, motor_id,  running_state
+  // running state - true if the speed is not zero or not at the target position
 
+  byte report_message[4] = {3, STEPPER_RUNNING_REPORT, command_buffer[0]};
 
-  byte report_message[3] = {2, STEPPER_RUNNING_REPORT, command_buffer[0]};
+  report_message[3]  = steppers[command_buffer[0]]->isRunning();
 
-  report_message[2]  = steppers[command_buffer[0]]->isRunning();
-
-  Serial.write(report_message, 3);
+  Serial.write(report_message, 4);
 #endif
 
 }
