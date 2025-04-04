@@ -461,7 +461,7 @@ bool sonar_reporting_enabled = true;  // flag to start and stop sonar reporting
 // firmware version - update this when bumping the version
 #define FIRMWARE_MAJOR 5
 #define FIRMWARE_MINOR 4
-#define FIRMWARE_PATCH 4
+#define FIRMWARE_PATCH X
 
 
 // Feature Masks And Storage
@@ -682,6 +682,9 @@ AccelStepper *steppers[MAX_NUMBER_OF_STEPPERS];
 // stepper run modes
 uint8_t stepper_run_modes[MAX_NUMBER_OF_STEPPERS];
 #endif
+
+// storage to buffer digital input occurrences
+uint8_t sensor_count = 0;
 
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
@@ -1740,6 +1743,9 @@ void init_pin_structures() {
 
 // scan the digital input pins for changes
 void scan_digital_inputs() {
+
+  #define SENSOR_PIN 12
+  #define BUFFER_AMOUNT 5
   byte value;
 
   // report message
@@ -1757,9 +1763,20 @@ void scan_digital_inputs() {
         value = (byte)digitalRead(the_digital_pins[i].pin_number);
         if (value != the_digital_pins[i].last_value) {
           the_digital_pins[i].last_value = value;
+          if( i == SENSOR_PIN){
+            sensor_count++;
+            if(sensor_count == BUFFER_AMOUNT){
+                report_message[2] = (byte)i;
+                report_message[3] = sensor_count;
+                Serial.write(report_message, 4);
+                sensor_count = 0;
+            }
+          }
+          else{
           report_message[2] = (byte)i;
           report_message[3] = value;
           Serial.write(report_message, 4);
+          }
         }
       }
     }
