@@ -459,9 +459,9 @@ bool sonar_reporting_enabled = true;  // flag to start and stop sonar reporting
 #define DHT_READ_ERROR 1
 
 // firmware version - update this when bumping the version
-#define FIRMWARE_MAJOR 5
-#define FIRMWARE_MINOR 4
-#define FIRMWARE_PATCH X
+#define FIRMWARE_MAJOR 9
+#define FIRMWARE_MINOR 9
+#define FIRMWARE_PATCH 9
 
 
 // Feature Masks And Storage
