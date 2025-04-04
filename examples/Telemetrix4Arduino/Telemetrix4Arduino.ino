@@ -1744,7 +1744,7 @@ void init_pin_structures() {
 // scan the digital input pins for changes
 void scan_digital_inputs() {
 
-  #define SENSOR_PIN 12
+  #define SENSOR_PIN 4
   #define BUFFER_AMOUNT 5
   byte value;
 
