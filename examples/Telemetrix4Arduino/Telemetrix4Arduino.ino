@@ -1747,7 +1747,7 @@ void init_pin_structures() {
 void scan_digital_inputs() {
 
 #define SENSOR_PIN 4
-#define RPM_SCAN_INTERVAL 1000  // send report each interval is achieved
+#define RPM_REPORT_INTERVAL 1000  // send report each interval is achieved
   byte value;
 
   // report message
@@ -1770,7 +1770,7 @@ void scan_digital_inputs() {
           if (i == SENSOR_PIN) {
             sensor_count++;
             rpm_current_millis = millis();
-            if (rpm_current_millis - rpm_previous_millis > RPM_SCAN_INTERVAL) {
+            if (rpm_current_millis - rpm_previous_millis > RPM_REPORT_INTERVAL) {
               rpm_previous_millis = rpm_current_millis;
 
               /***************************************************/
