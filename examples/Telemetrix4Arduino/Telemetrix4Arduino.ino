@@ -685,6 +685,8 @@ uint8_t stepper_run_modes[MAX_NUMBER_OF_STEPPERS];
 
 // storage to buffer digital input occurrences
 uint8_t sensor_count = 0;
+unsigned long rpm_current_millis;   // for rpm sensor
+unsigned long rpm_previous_millis;  // for rpm sensor
 
 
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
@@ -1744,8 +1746,8 @@ void init_pin_structures() {
 // scan the digital input pins for changes
 void scan_digital_inputs() {
 
-  #define SENSOR_PIN 4
-  #define BUFFER_AMOUNT 5
+#define SENSOR_PIN 4
+#define RPM_SCAN_INTERVAL 1000  // send report each interval is achieved
   byte value;
 
   // report message
@@ -1763,19 +1765,28 @@ void scan_digital_inputs() {
         value = (byte)digitalRead(the_digital_pins[i].pin_number);
         if (value != the_digital_pins[i].last_value) {
           the_digital_pins[i].last_value = value;
-          if( i == SENSOR_PIN){
+
+          // process rpm sensor
+          if (i == SENSOR_PIN) {
             sensor_count++;
-            if(sensor_count == BUFFER_AMOUNT){
-                report_message[2] = (byte)i;
-                report_message[3] = sensor_count;
-                Serial.write(report_message, 4);
-                sensor_count = 0;
+            rpm_current_millis = millis();
+            if (rpm_current_millis - rpm_previous_millis > RPM_SCAN_INTERVAL) {
+              rpm_previous_millis = rpm_current_millis;
+
+              /***************************************************/
+              // do rpm calculation here
+              // place result in rpm_value - a 16 bit value
+              /***************************************************/
+
+              report_message[2] = (byte)i;
+              report_message[3] = value;
+              Serial.write(report_message, 4);
+              sensor_count = 0;
             }
-          }
-          else{
-          report_message[2] = (byte)i;
-          report_message[3] = value;
-          Serial.write(report_message, 4);
+          } else {
+            report_message[2] = (byte)i;
+            report_message[3] = value;
+            Serial.write(report_message, 4);
           }
         }
       }
