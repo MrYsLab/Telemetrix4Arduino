@@ -518,6 +518,9 @@ TwoWire *current_i2c_port;
 #define AT_ANALOG 3
 #define AT_MODE_NOT_SET 255
 
+// A flag value to indicate that the last_value of a digital pin is not valid
+#define AT_UNDEFINED_VALUE 1234
+
 // maximum number of pins supported
 #define MAX_DIGITAL_PINS_SUPPORTED 100
 #define MAX_ANALOG_PINS_SUPPORTED 16
@@ -719,11 +722,13 @@ void set_pin_mode()
   switch (mode) {
     case INPUT:
       the_digital_pins[pin].pin_mode = mode;
+      the_digital_pins[pin].last_value = AT_UNDEFINED_VALUE;
       the_digital_pins[pin].reporting_enabled = command_buffer[2];
       pinMode(pin, INPUT);
       break;
     case INPUT_PULLUP:
       the_digital_pins[pin].pin_mode = mode;
+      the_digital_pins[pin].last_value = AT_UNDEFINED_VALUE;
       the_digital_pins[pin].reporting_enabled = command_buffer[2];
       pinMode(pin, INPUT_PULLUP);
       break;
@@ -781,6 +786,7 @@ void modify_reporting() {
     case REPORTING_DISABLE_ALL:
       for (int i = 0; i < MAX_DIGITAL_PINS_SUPPORTED; i++) {
         the_digital_pins[i].reporting_enabled = false;
+        the_digital_pins[i].last_value = AT_UNDEFINED_VALUE;
       }
       for (int i = 0; i < MAX_ANALOG_PINS_SUPPORTED; i++) {
         the_analog_pins[i].reporting_enabled = false;
@@ -1719,7 +1725,7 @@ void init_pin_structures() {
     the_digital_pins[i].pin_number = i;
     the_digital_pins[i].pin_mode = AT_MODE_NOT_SET;
     the_digital_pins[i].reporting_enabled = false;
-    the_digital_pins[i].last_value = 0;
+    the_digital_pins[i].last_value = AT_UNDEFINED_VALUE;
   }
 
   // establish the analog pin array
@@ -1755,7 +1761,7 @@ void scan_digital_inputs() {
       if (the_digital_pins[i].reporting_enabled) {
         // if the value changed since last read
         value = (byte)digitalRead(the_digital_pins[i].pin_number);
-        if (value != the_digital_pins[i].last_value) {
+        if (value == AT_UNDEFINED_VALUE || value != the_digital_pins[i].last_value) {
           the_digital_pins[i].last_value = value;
           report_message[2] = (byte)i;
           report_message[3] = value;
